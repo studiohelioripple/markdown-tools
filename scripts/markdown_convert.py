@@ -15,8 +15,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Optional, Dict, Any
+from xml.etree import ElementTree as ET
 
 FORMATS = ("pages", "pdf", "html", "docx")
 
@@ -243,15 +245,15 @@ THEME_CONFIGS: dict[str, dict[str, Any]] = {
             --accent-primary: #0071e3;
             --accent-hover: #0077ed;
             --accent-subtle: #f0f7ff;
-            --code-bg: #f2f2f7;
-            --code-header: #e5e5ea;
-            --code-text: #1c1c1e;
-            --inline-code-bg: #e5e5ea;
-            --inline-code-color: #1c1c1e;
+            --code-bg: #1e1e24;
+            --code-header: #2c2c34;
+            --code-text: #f5f5f7;
+            --inline-code-bg: #f2f2f7;
+            --inline-code-color: #1d1d1f;
             --table-header: #fbfbfd;
             --table-zebra: #f5f5f7;
             --shadow-card: 0 4px 28px rgba(0, 0, 0, 0.06);
-            --shadow-code: 0 4px 16px rgba(0, 0, 0, 0.06);
+            --shadow-code: 0 8px 24px rgba(0, 0, 0, 0.12);
             --card-radius: 18px;
         }
         """
@@ -1220,6 +1222,155 @@ document.addEventListener("DOMContentLoaded", function() {{
 </html>"""
 
 
+def postprocess_docx_styles(docx_path: str | Path) -> None:
+    """
+    Post-processes a DOCX file produced by textutil (or HTML conversion) to inject
+    Apple Pages / Microsoft Word OOXML named paragraph and character styles:
+    Title, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Body,
+    Block Quote, Code, Bullet List, Numbered List.
+    """
+    WNS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    ET.register_namespace("w", WNS)
+
+    docx_p = Path(docx_path)
+    if not docx_p.is_file():
+        return
+
+    try:
+        with zipfile.ZipFile(docx_p, "r") as zin:
+            files = {name: zin.read(name) for name in zin.namelist()}
+    except Exception:
+        return
+
+    if "word/document.xml" not in files:
+        return
+
+    styles_xml_content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="Heading 1"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="Heading 2"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="Heading 3"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="Heading 4"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="Heading 5"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="Heading 6"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Body"><w:name w:val="Body"/></w:style>
+  <w:style w:type="paragraph" w:styleId="BlockQuote"><w:name w:val="Block Quote"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/></w:style>
+  <w:style w:type="paragraph" w:styleId="BulletList"><w:name w:val="Bullet List"/></w:style>
+  <w:style w:type="paragraph" w:styleId="NumberedList"><w:name w:val="Numbered List"/></w:style>
+  <w:style w:type="character" w:styleId="Bold"><w:name w:val="Bold"/></w:style>
+  <w:style w:type="character" w:styleId="Italic"><w:name w:val="Italic"/></w:style>
+  <w:style w:type="character" w:styleId="InlineCode"><w:name w:val="Inline Code"/></w:style>
+  <w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/></w:style>
+</w:styles>"""
+    files["word/styles.xml"] = styles_xml_content.encode("utf-8")
+
+    ct_str = files.get("[Content_Types].xml", b"").decode("utf-8", errors="ignore")
+    if ct_str and "word/styles.xml" not in ct_str:
+        ct_str = ct_str.replace("</Types>", '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>')
+        files["[Content_Types].xml"] = ct_str.encode("utf-8")
+
+    if "word/_rels/document.xml.rels" in files:
+        rels_str = files["word/_rels/document.xml.rels"].decode("utf-8", errors="ignore")
+        if "styles.xml" not in rels_str:
+            rels_str = rels_str.replace("</Relationships>", '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
+            files["word/_rels/document.xml.rels"] = rels_str.encode("utf-8")
+
+    try:
+        doc_tree = ET.fromstring(files["word/document.xml"])
+    except Exception:
+        return
+
+    body = doc_tree.find(f"{{{WNS}}}body")
+    if body is None:
+        return
+
+    paras = body.findall(f"{{{WNS}}}p")
+    first_heading_seen = False
+
+    for p in paras:
+        text = "".join(p.itertext()).strip()
+        if not text:
+            continue
+
+        rPr_first = p.find(f".//{{{WNS}}}rPr")
+        font_name = ""
+        sz_val = 0
+        is_bold = False
+        is_italic = False
+        if rPr_first is not None:
+            rFonts = rPr_first.find(f"{{{WNS}}}rFonts")
+            if rFonts is not None:
+                font_name = rFonts.get(f"{{{WNS}}}ascii", "") or rFonts.get(f"{{{WNS}}}hAnsi", "")
+            sz = rPr_first.find(f"{{{WNS}}}sz")
+            if sz is not None:
+                try:
+                    sz_val = int(sz.get(f"{{{WNS}}}val", "0"))
+                except ValueError:
+                    pass
+            is_bold = rPr_first.find(f"{{{WNS}}}b") is not None
+            is_italic = rPr_first.find(f"{{{WNS}}}i") is not None
+
+        pPr = p.find(f"{{{WNS}}}pPr")
+        has_ind = False
+        if pPr is not None:
+            ind = pPr.find(f"{{{WNS}}}ind")
+            if ind is not None:
+                has_ind = True
+
+        style_id = "Body"
+        if any(f in font_name for f in ["Courier", "Mono", "Consolas", "Menlo", "Code"]):
+            style_id = "Code"
+        elif text.startswith("•") or text.startswith("- ") or text.startswith("* ") or (has_ind and text.startswith("•")):
+            style_id = "BulletList"
+        elif (has_ind or text.strip()[:1].isdigit()) and any(text.startswith(f"{n}") for n in range(10)) and ("." in text[:5] or ")" in text[:5]):
+            style_id = "NumberedList"
+        elif is_italic and not is_bold and sz_val == 24:
+            style_id = "BlockQuote"
+        elif is_bold and sz_val >= 44:
+            if not first_heading_seen:
+                style_id = "Title"
+                first_heading_seen = True
+            else:
+                style_id = "Heading1"
+        elif is_bold and sz_val >= 34:
+            style_id = "Heading1"
+            first_heading_seen = True
+        elif is_bold and sz_val >= 27:
+            style_id = "Heading2"
+            first_heading_seen = True
+        elif is_bold and sz_val >= 23:
+            style_id = "Heading3"
+        elif is_bold and sz_val >= 19:
+            style_id = "Heading4"
+        elif is_bold and sz_val >= 17:
+            style_id = "Heading5"
+        elif is_bold:
+            style_id = "Heading6"
+
+        if pPr is None:
+            pPr = ET.Element(f"{{{WNS}}}pPr")
+            p.insert(0, pPr)
+
+        existing_pstyle = pPr.find(f"{{{WNS}}}pStyle")
+        if existing_pstyle is not None:
+            pPr.remove(existing_pstyle)
+
+        pstyle = ET.Element(f"{{{WNS}}}pStyle")
+        pstyle.set(f"{{{WNS}}}val", style_id)
+        pPr.insert(0, pstyle)
+
+    files["word/document.xml"] = ET.tostring(doc_tree, encoding="utf-8", xml_declaration=True)
+
+    try:
+        with zipfile.ZipFile(docx_p, "w") as zout:
+            for name, data in files.items():
+                zout.writestr(name, data)
+    except Exception:
+        pass
+
+
 def convert_markdown(
     source: Path,
     output_format: str,
@@ -1287,6 +1438,7 @@ def convert_markdown(
             tmp_html = Path(tmp_dir) / f"{source.stem}.html"
             tmp_html.write_text(rendered_html, encoding="utf-8")
             subprocess.run(["textutil", "-convert", "docx", "-output", str(destination), str(tmp_html)], check=True)
+            postprocess_docx_styles(destination)
         return destination
 
     if output_format == "pages":
@@ -1298,6 +1450,7 @@ def convert_markdown(
             tmp_html.write_text(rendered_html, encoding="utf-8")
             tmp_docx = Path(tmp_dir) / f"{source.stem}.docx"
             subprocess.run(["textutil", "-convert", "docx", "-output", str(tmp_docx), str(tmp_html)], check=True)
+            postprocess_docx_styles(tmp_docx)
 
             if destination.exists():
                 if destination.is_dir(): shutil.rmtree(destination)
