@@ -475,6 +475,8 @@ THEME_CSS: dict[str, str] = {
     """
 }
 
+THEME_STYLES: dict[str, str] = THEME_CSS
+
 # ── Pure-Python High-Fidelity GFM Markdown Parser ─────────────────────────────
 
 def parse_markdown_to_html(md_text: str, title: str = "", theme: str = "modern") -> str:
@@ -945,7 +947,7 @@ def convert_md_to_pdf(md_path: str | Path, pdf_path: str | Path | None = None, t
     raise RuntimeError("Failed to generate PDF. Install Google Chrome or ensure Apple Pages is available.")
 
 
-def convert_md_to_pages(md_path: str | Path, pages_path: str | Path | None = None, theme: str = "modern", open_result: bool = False) -> str:
+def convert_md_to_pages(md_path: str | Path, pages_path: str | Path | None = None, theme: str = "modern", open_result: bool = False, custom_char_styles: dict | None = None) -> str:
     """Converts a Markdown file into a native Apple Pages (.pages) document with layout fidelity."""
     md_file = Path(md_path).expanduser().resolve()
     if not md_file.is_file():
@@ -974,8 +976,9 @@ def convert_md_to_pages(md_path: str | Path, pages_path: str | Path | None = Non
         set docxFile to POSIX file "{tmp_docx}"
         set pagesFile to POSIX file "{target_pages}"
         tell application "Pages"
+            launch
             activate
-            delay 1
+            delay 2
             set doc to open docxFile
             delay 1
             save doc in pagesFile

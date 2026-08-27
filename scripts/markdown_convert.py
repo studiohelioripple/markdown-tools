@@ -1290,7 +1290,8 @@ def convert_markdown(
         return destination
 
     if output_format == "pages":
-        if sys.platform != "darwin" or not os.path.exists("/Applications/Pages.app"):
+        has_pages = sys.platform == "darwin" and (os.path.exists("/Applications/Pages.app") or os.path.exists("/Applications/Pages Creator Studio.app"))
+        if not has_pages:
             raise RuntimeError("Pages output requires macOS with Apple Pages installed.")
         with tempfile.TemporaryDirectory(prefix="convert-pages-") as tmp_dir:
             tmp_html = Path(tmp_dir) / f"{source.stem}.html"
@@ -1306,8 +1307,9 @@ def convert_markdown(
             set docxFile to POSIX file "{tmp_docx}"
             set pagesFile to POSIX file "{destination}"
             tell application "Pages"
+                launch
                 activate
-                delay 1
+                delay 2
                 set doc to open docxFile
                 delay 1
                 save doc in pagesFile
