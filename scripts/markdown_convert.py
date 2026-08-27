@@ -1531,10 +1531,14 @@ def postprocess_docx_styles(
   <w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/></w:style>
   <w:style w:type="paragraph" w:styleId="BulletList"><w:name w:val="Bullet List"/></w:style>
   <w:style w:type="paragraph" w:styleId="NumberedList"><w:name w:val="Numbered List"/></w:style>
-  <w:style w:type="character" w:styleId="Bold"><w:name w:val="Bold"/></w:style>
-  <w:style w:type="character" w:styleId="Italic"><w:name w:val="Italic"/></w:style>
-  <w:style w:type="character" w:styleId="InlineCode"><w:name w:val="Inline Code"/></w:style>
-  <w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/></w:style>
+  <w:style w:type="character" w:styleId="Bold"><w:name w:val="Bold"/><w:rPr><w:b/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="Italic"><w:name w:val="Italic"/><w:rPr><w:i/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="BoldItalic"><w:name w:val="Bold Italic"/><w:rPr><w:b/><w:i/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="InlineCode"><w:name w:val="Inline Code"/><w:rPr><w:rFonts w:ascii="Menlo" w:hAnsi="Menlo"/><w:color w:val="2563EB"/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="Underline"><w:name w:val="Underline"/><w:rPr><w:u w:val="single"/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="Strikethrough"><w:name w:val="Strikethrough"/><w:rPr><w:strike/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="Highlight"><w:name w:val="Highlight"/><w:rPr><w:highlight w:val="yellow"/></w:rPr></w:style>
+  <w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="2563EB"/><w:u w:val="single"/></w:rPr></w:style>
 </w:styles>"""
     files["word/styles.xml"] = styles_xml_content.encode("utf-8")
 
@@ -1685,6 +1689,42 @@ def postprocess_docx_styles(
         pstyle = ET.Element(f"{{{WNS}}}pStyle")
         pstyle.set(f"{{{WNS}}}val", style_id)
         pPr.insert(0, pstyle)
+        # Assign Character Styles (<w:rStyle>) to runs
+        for r in p.findall(f".//{{{WNS}}}r"):
+            rPr_r = r.find(f"{{{WNS}}}rPr")
+            if rPr_r is not None:
+                rFonts_r = rPr_r.find(f"{{{WNS}}}rFonts")
+                f_name = rFonts_r.get(f"{{{WNS}}}ascii", "") if rFonts_r is not None else ""
+                r_b = rPr_r.find(f"{{{WNS}}}b") is not None
+                r_i = rPr_r.find(f"{{{WNS}}}i") is not None
+                r_u = rPr_r.find(f"{{{WNS}}}u") is not None
+                r_strike = rPr_r.find(f"{{{WNS}}}strike") is not None or rPr_r.find(f"{{{WNS}}}dstrike") is not None
+                r_hl = rPr_r.find(f"{{{WNS}}}highlight") is not None
+
+                c_id = None
+                if any(m in f_name for m in ["Menlo", "Courier", "Consolas", "Mono"]):
+                    c_id = "InlineCode"
+                elif r_b and r_i:
+                    c_id = "BoldItalic"
+                elif r_b:
+                    c_id = "Bold"
+                elif r_i:
+                    c_id = "Italic"
+                elif r_u:
+                    c_id = "Underline"
+                elif r_strike:
+                    c_id = "Strikethrough"
+                elif r_hl:
+                    c_id = "Highlight"
+
+                if c_id:
+                    existing_rstyle = rPr_r.find(f"{{{WNS}}}rStyle")
+                    if existing_rstyle is not None:
+                        rPr_r.remove(existing_rstyle)
+                    rstyle_elem = ET.Element(f"{{{WNS}}}rStyle")
+                    rstyle_elem.set(f"{{{WNS}}}val", c_id)
+                    rPr_r.insert(0, rstyle_elem)
+
 
     files["word/document.xml"] = ET.tostring(doc_tree, encoding="utf-8", xml_declaration=True)
 
