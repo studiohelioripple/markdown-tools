@@ -894,24 +894,23 @@ window.addEventListener('DOMContentLoaded', async () => {{
         ]
         chrome_bin = next((c for c in chrome_candidates if os.path.exists(c)), None)
         if not chrome_bin:
-            raise RuntimeError("Headless Chrome is required to render Mermaid diagrams to vector layout.")
+            raise RuntimeError("Headless Chrome is required to render Mermaid diagrams to graphical layout.")
             
+        # Step 1: Dump DOM to get viewBox dimensions
         res = subprocess.run([
             chrome_bin,
             "--headless=new",
             "--disable-gpu",
             "--allow-file-access-from-files",
             "--enable-local-file-accesses",
-            "--virtual-time-budget=3000",
-            "--window-size=1400,900",
-            f"--screenshot={tmp_png}",
+            "--virtual-time-budget=2000",
+            "--window-size=1200,800",
             "--dump-dom",
             f"file://{tmp_html}"
         ], capture_output=True, text=True)
         
         m = re.search(r"(<svg[\s\S]*?</svg>)", res.stdout)
         svg_code = m.group(1) if m else ""
-        png_data = tmp_png.read_bytes() if tmp_png.exists() else b""
         
         w_px, h_px = 600, 400
         if svg_code:
@@ -921,9 +920,25 @@ window.addEventListener('DOMContentLoaded', async () => {{
                 if len(parts) == 4:
                     w_px, h_px = parts[2], parts[3]
         
+        # Step 2: Capture tight high-res Retina screenshot
+        win_w = max(int(w_px + 32), 200)
+        win_h = max(int(h_px + 32), 150)
+        subprocess.run([
+            chrome_bin,
+            "--headless=new",
+            "--disable-gpu",
+            "--allow-file-access-from-files",
+            "--force-device-scale-factor=2",
+            f"--window-size={win_w},{win_h}",
+            f"--screenshot={tmp_png}",
+            f"file://{tmp_html}"
+        ], capture_output=True, text=True)
+        
+        png_data = tmp_png.read_bytes() if tmp_png.exists() else b""
+        
         max_w_emu = 5029200
         aspect = h_px / max(w_px, 1)
-        w_emu = min(int(w_px * 9525 * 1.2), max_w_emu)
+        w_emu = min(int(w_px * 9525 * 1.15), max_w_emu)
         h_emu = int(w_emu * aspect)
         
         return svg_code, png_data, w_emu, h_emu
@@ -1066,8 +1081,8 @@ def build_ooxml_drawing(r_id_svg: str, r_id_png: str, cx: int, cy: int, desc: st
     
     blipFill = ET.SubElement(pic, f"{{{PICNS}}}blipFill")
     blip = ET.SubElement(blipFill, f"{{{ANS}}}blip")
-    # For Apple Pages, direct SVG embedding works seamlessly; for Word, use SVG extension
-    blip.set(f"{{{RNS}}}embed", r_id_svg)
+    # Primary image embed is high-res PNG for Apple Pages full native support
+    blip.set(f"{{{RNS}}}embed", r_id_png)
     extLst = ET.SubElement(blip, f"{{{ANS}}}extLst")
     ext = ET.SubElement(extLst, f"{{{ANS}}}ext")
     ext.set("uri", "{96DAC542-7CC2-4438-873DA00B022F820E}")
