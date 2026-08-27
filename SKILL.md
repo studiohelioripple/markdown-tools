@@ -4,7 +4,8 @@ description: >-
   Comprehensive suite for Markdown processing, multi-target conversion (PDF, HTML, Apple Pages, DOCX),
   custom themes, and layout-preserving translation. Features 9 curated themes (Amil Design Light/Dark,
   Terminal Dark / CLI Slate & Amber, Apple Design Light/Dark, VS Code Dark, GitHub Light, Nord Frost, Editorial Serif),
-  native Mermaid diagram rendering (with dark/light contrast), KaTeX math formulas, callout banners, and RTL/Persian support.
+  native Mermaid diagram rendering (with dark/light contrast), KaTeX math formulas, callout banners, RTL/Persian support,
+  and OOXML named paragraph style bindings for Apple Pages and Microsoft Word.
 ---
 
 # Markdown Tools & Conversion Suite
@@ -46,24 +47,32 @@ All previous theme names automatically map to the canonical themes:
 
 ---
 
-## 2. Multi-Target Markdown Conversion
+## 2. Multi-Target Markdown Conversion & Named Styles
 
-Converts Markdown documents into **PDF**, **HTML**, **Apple Pages (`.pages`)**, or **Word (`.docx`)**.
+Converts Markdown documents into **PDF**, **HTML**, **Apple Pages (`.pages`)**, or **Word (`.docx`)**. 
+On conversion to Pages or DOCX, an automated OOXML post-processor guarantees that all text runs are bound to native named styles (`Title`, `Heading 1–6`, `Body`, `Block Quote`, `Code`, `Bullet List`, `Numbered List`).
 
-### Global CLI Commands
+### Global CLI Commands & Shortcuts
+
+Installed in `~/.local/bin`:
+
+| Command | Shortcut Alias | Function |
+|---|---|---|
+| `forma convert` | `md-to-pages`, `md-to-pdf`, `md-to-html`, `md-to-docx` | Convert Markdown into `.pages`, `.pdf`, `.html`, or `.docx` |
+| `md-convert` | `python3 .../markdown_convert.py` | Direct entrypoint to multi-target markdown conversion engine |
 
 ```bash
 # Render to PDF using Terminal Dark theme (CLI Slate & Amber)
 forma convert document.md -f pdf -t terminal-dark
+
+# Convert Markdown to Apple Pages (.pages) with named styles applied
+forma convert document.md -f pages -t apple-light
 
 # Render to PDF using VS Code Dark theme (great for diagrams & graphs)
 forma convert document.md -f pdf -t vscode-dark
 
 # Convert to HTML with Amil Dark
 forma convert document.md -f html -t amil-dark
-
-# Convert to Apple Pages with Apple Light
-forma convert document.md -f pages -t apple-light
 
 # Render with RTL for Persian/Arabic documents
 forma convert document_fa.md -f pdf -t terminal-dark --rtl
@@ -82,3 +91,4 @@ To reinstall or refresh the Quick Action:
 ```bash
 bash ~/.gemini/config/skills/markdown-tools/scripts/install-finder-quick-action.sh
 ```
+
