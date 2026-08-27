@@ -1491,17 +1491,280 @@ document.addEventListener("DOMContentLoaded", function() {{
     return full_html, {"tables": tables_meta, "diagrams": diagrams_meta}
 
 
+def get_theme_styles_xml(theme: str = "amil-light") -> str:
+    font_main = "Helvetica Neue"
+    font_code = "Menlo"
+    col_title = "0D121F"
+    col_body = "273143"
+    col_muted = "4B5563"
+    col_accent = "2563EB"
+    bg_code = "F3F4F6"
+    
+    norm = normalize_theme_name(theme)
+    if "dark" in norm or "midnight" in norm:
+        col_title = "F8FAFC"
+        col_body = "CBD5E1"
+        col_muted = "94A3B8"
+        col_accent = "38BDF8"
+        bg_code = "1E293B"
+    elif "serif" in norm or "editorial" in norm or "classic" in norm:
+        font_main = "New York"
+        font_code = "Menlo"
+        col_title = "26211E"
+        col_body = "3A322D"
+        col_muted = "6E6259"
+        col_accent = "9B111E"
+        
+    return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="140" w:line="276" w:lineRule="auto"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:sz w:val="22"/>
+      <w:color w:val="{col_body}"/>
+    </w:rPr>
+  </w:style>
+  
+  <w:style w:type="paragraph" w:styleId="Title">
+    <w:name w:val="Title"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="240" w:after="120" w:line="280" w:lineRule="auto"/>
+      <w:jc w:val="left"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="56"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+  
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="Heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="360" w:after="120"/>
+      <w:jc w:val="left"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="40"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="Heading 2"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="280" w:after="100"/>
+      <w:jc w:val="left"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="32"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Heading3">
+    <w:name w:val="Heading 3"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="220" w:after="80"/>
+      <w:jc w:val="left"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="26"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Heading4">
+    <w:name w:val="Heading 4"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="180" w:after="60"/>
+      <w:jc w:val="left"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="22"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Heading5">
+    <w:name w:val="Heading 5"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="140" w:after="40"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="20"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Heading6">
+    <w:name w:val="Heading 6"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="120" w:after="40"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:b/>
+      <w:sz w:val="18"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Body">
+    <w:name w:val="Body"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="140" w:line="276" w:lineRule="auto"/>
+      <w:jc w:val="left"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:sz w:val="22"/>
+      <w:color w:val="{col_body}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="BlockQuote">
+    <w:name w:val="Block Quote"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="140" w:after="140" w:line="276" w:lineRule="auto"/>
+      <w:ind w:left="360"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:i/>
+      <w:sz w:val="22"/>
+      <w:color w:val="{col_muted}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="Code">
+    <w:name w:val="Code"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="80" w:after="80" w:line="240" w:lineRule="auto"/>
+      <w:shd w:val="clear" w:color="auto" w:fill="{bg_code}"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_code}" w:hAnsi="{font_code}"/>
+      <w:sz w:val="20"/>
+      <w:color w:val="{col_title}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="BulletList">
+    <w:name w:val="Bullet List"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="40" w:after="40"/>
+      <w:ind w:left="360" w:hanging="240"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:sz w:val="22"/>
+      <w:color w:val="{col_body}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="paragraph" w:styleId="NumberedList">
+    <w:name w:val="Numbered List"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:spacing w:before="40" w:after="40"/>
+      <w:ind w:left="360" w:hanging="240"/>
+    </w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_main}" w:hAnsi="{font_main}"/>
+      <w:sz w:val="22"/>
+      <w:color w:val="{col_body}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="Bold">
+    <w:name w:val="Bold"/>
+    <w:rPr><w:b/></w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="Italic">
+    <w:name w:val="Italic"/>
+    <w:rPr><w:i/></w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="BoldItalic">
+    <w:name w:val="Bold Italic"/>
+    <w:rPr><w:b/><w:i/></w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="InlineCode">
+    <w:name w:val="Inline Code"/>
+    <w:rPr>
+      <w:rFonts w:ascii="{font_code}" w:hAnsi="{font_code}"/>
+      <w:color w:val="{col_accent}"/>
+      <w:shd w:val="clear" w:color="auto" w:fill="{bg_code}"/>
+    </w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="Underline">
+    <w:name w:val="Underline"/>
+    <w:rPr><w:u w:val="single"/></w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="Strikethrough">
+    <w:name w:val="Strikethrough"/>
+    <w:rPr><w:strike/></w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="Highlight">
+    <w:name w:val="Highlight"/>
+    <w:rPr><w:highlight w:val="yellow"/></w:rPr>
+  </w:style>
+
+  <w:style w:type="character" w:styleId="Hyperlink">
+    <w:name w:val="Hyperlink"/>
+    <w:rPr>
+      <w:color w:val="{col_accent}"/>
+      <w:u w:val="single"/>
+    </w:rPr>
+  </w:style>
+</w:styles>"""
+
+
 def postprocess_docx_styles(
     docx_path: str | Path,
     tables: list | None = None,
     diagrams: list | None = None,
     vendor_dir: Path | None = None,
+    theme: str = "amil-light",
 ) -> None:
     """
     Post-processes a DOCX file produced by textutil to inject:
-    1. Genuine OOXML tables (<w:tbl>) with header and cell styling
-    2. Embedded vector diagrams (<w:drawing>) with SVG and Retina PNG fallback
-    3. Apple Pages / Microsoft Word named paragraph styles (Title, Heading 1-6, Body, Block Quote, Code, Bullet List, Numbered List)
+    1. Rich, visual theme definitions for all named paragraph styles & character styles in word/styles.xml
+    2. Genuine OOXML tables (<w:tbl>) with header and cell styling
+    3. Embedded vector diagrams (<w:drawing>) with SVG and Retina PNG fallback
+    4. Pure named paragraph style bindings without redundant direct formatting overrides
     """
     docx_p = Path(docx_path)
     if not docx_p.is_file():
@@ -1516,31 +1779,8 @@ def postprocess_docx_styles(
     if "word/document.xml" not in files:
         return
 
-    # Injected styles.xml
-    styles_xml_content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="Heading 1"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="Heading 2"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="Heading 3"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="Heading 4"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="Heading 5"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="Heading 6"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Body"><w:name w:val="Body"/></w:style>
-  <w:style w:type="paragraph" w:styleId="BlockQuote"><w:name w:val="Block Quote"/></w:style>
-  <w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/></w:style>
-  <w:style w:type="paragraph" w:styleId="BulletList"><w:name w:val="Bullet List"/></w:style>
-  <w:style w:type="paragraph" w:styleId="NumberedList"><w:name w:val="Numbered List"/></w:style>
-  <w:style w:type="character" w:styleId="Bold"><w:name w:val="Bold"/><w:rPr><w:b/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="Italic"><w:name w:val="Italic"/><w:rPr><w:i/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="BoldItalic"><w:name w:val="Bold Italic"/><w:rPr><w:b/><w:i/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="InlineCode"><w:name w:val="Inline Code"/><w:rPr><w:rFonts w:ascii="Menlo" w:hAnsi="Menlo"/><w:color w:val="2563EB"/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="Underline"><w:name w:val="Underline"/><w:rPr><w:u w:val="single"/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="Strikethrough"><w:name w:val="Strikethrough"/><w:rPr><w:strike/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="Highlight"><w:name w:val="Highlight"/><w:rPr><w:highlight w:val="yellow"/></w:rPr></w:style>
-  <w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="2563EB"/><w:u w:val="single"/></w:rPr></w:style>
-</w:styles>"""
-    files["word/styles.xml"] = styles_xml_content.encode("utf-8")
+    # Injected styles.xml with full visual specifications
+    files["word/styles.xml"] = get_theme_styles_xml(theme).encode("utf-8")
 
     ct_str = files.get("[Content_Types].xml", b"").decode("utf-8", errors="ignore")
     if ct_str and "word/styles.xml" not in ct_str:
@@ -1622,7 +1862,7 @@ def postprocess_docx_styles(
                 body.insert(idx_in_body, draw_node)
                 continue
 
-        # Otherwise format standard paragraphs with Named Styles
+        # Classification of Paragraph Style
         rPr_first = p.find(f".//{{{WNS}}}rPr")
         font_name = ""
         sz_val = 0
@@ -1649,6 +1889,7 @@ def postprocess_docx_styles(
                 has_ind = True
 
         style_id = "Body"
+        is_heading = False
         if any(f in font_name for f in ["Courier", "Mono", "Consolas", "Menlo", "Code"]):
             style_id = "Code"
         elif text.startswith("•") or text.startswith("- ") or text.startswith("* ") or (has_ind and text.startswith("•")):
@@ -1663,20 +1904,27 @@ def postprocess_docx_styles(
                 first_heading_seen = True
             else:
                 style_id = "Heading1"
+            is_heading = True
         elif is_bold and sz_val >= 34:
             style_id = "Heading1"
             first_heading_seen = True
+            is_heading = True
         elif is_bold and sz_val >= 27:
             style_id = "Heading2"
             first_heading_seen = True
+            is_heading = True
         elif is_bold and sz_val >= 23:
             style_id = "Heading3"
+            is_heading = True
         elif is_bold and sz_val >= 19:
             style_id = "Heading4"
+            is_heading = True
         elif is_bold and sz_val >= 17:
             style_id = "Heading5"
+            is_heading = True
         elif is_bold:
             style_id = "Heading6"
+            is_heading = True
 
         if pPr is None:
             pPr = ET.Element(f"{{{WNS}}}pPr")
@@ -1689,42 +1937,50 @@ def postprocess_docx_styles(
         pstyle = ET.Element(f"{{{WNS}}}pStyle")
         pstyle.set(f"{{{WNS}}}val", style_id)
         pPr.insert(0, pstyle)
-        # Assign Character Styles (<w:rStyle>) to runs
+
+        # For headings: clean direct formatting overrides on runs so style defines all visual features
         for r in p.findall(f".//{{{WNS}}}r"):
             rPr_r = r.find(f"{{{WNS}}}rPr")
             if rPr_r is not None:
-                rFonts_r = rPr_r.find(f"{{{WNS}}}rFonts")
-                f_name = rFonts_r.get(f"{{{WNS}}}ascii", "") if rFonts_r is not None else ""
-                r_b = rPr_r.find(f"{{{WNS}}}b") is not None
-                r_i = rPr_r.find(f"{{{WNS}}}i") is not None
-                r_u = rPr_r.find(f"{{{WNS}}}u") is not None
-                r_strike = rPr_r.find(f"{{{WNS}}}strike") is not None or rPr_r.find(f"{{{WNS}}}dstrike") is not None
-                r_hl = rPr_r.find(f"{{{WNS}}}highlight") is not None
+                if is_heading:
+                    for tag in ["sz", "sz-cs", "color", "rFonts", "spacing"]:
+                        el = rPr_r.find(f"{{{WNS}}}{tag}")
+                        if el is not None:
+                            rPr_r.remove(el)
+                else:
+                    f_name = ""
+                    rFonts_r = rPr_r.find(f"{{{WNS}}}rFonts")
+                    if rFonts_r is not None:
+                        f_name = rFonts_r.get(f"{{{WNS}}}ascii", "")
+                    r_b = rPr_r.find(f"{{{WNS}}}b") is not None
+                    r_i = rPr_r.find(f"{{{WNS}}}i") is not None
+                    r_u = rPr_r.find(f"{{{WNS}}}u") is not None
+                    r_strike = rPr_r.find(f"{{{WNS}}}strike") is not None or rPr_r.find(f"{{{WNS}}}dstrike") is not None
+                    r_hl = rPr_r.find(f"{{{WNS}}}highlight") is not None
 
-                c_id = None
-                if any(m in f_name for m in ["Menlo", "Courier", "Consolas", "Mono"]):
-                    c_id = "InlineCode"
-                elif r_b and r_i:
-                    c_id = "BoldItalic"
-                elif r_b:
-                    c_id = "Bold"
-                elif r_i:
-                    c_id = "Italic"
-                elif r_u:
-                    c_id = "Underline"
-                elif r_strike:
-                    c_id = "Strikethrough"
-                elif r_hl:
-                    c_id = "Highlight"
+                    c_id = None
+                    if any(m in f_name for m in ["Menlo", "Courier", "Consolas", "Mono"]):
+                        c_id = "InlineCode"
+                    elif r_b and r_i:
+                        c_id = "BoldItalic"
+                    elif r_b:
+                        c_id = "Bold"
+                    elif r_i:
+                        c_id = "Italic"
+                    elif r_u:
+                        c_id = "Underline"
+                    elif r_strike:
+                        c_id = "Strikethrough"
+                    elif r_hl:
+                        c_id = "Highlight"
 
-                if c_id:
-                    existing_rstyle = rPr_r.find(f"{{{WNS}}}rStyle")
-                    if existing_rstyle is not None:
-                        rPr_r.remove(existing_rstyle)
-                    rstyle_elem = ET.Element(f"{{{WNS}}}rStyle")
-                    rstyle_elem.set(f"{{{WNS}}}val", c_id)
-                    rPr_r.insert(0, rstyle_elem)
-
+                    if c_id:
+                        existing_rstyle = rPr_r.find(f"{{{WNS}}}rStyle")
+                        if existing_rstyle is not None:
+                            rPr_r.remove(existing_rstyle)
+                        rstyle_elem = ET.Element(f"{{{WNS}}}rStyle")
+                        rstyle_elem.set(f"{{{WNS}}}val", c_id)
+                        rPr_r.insert(0, rstyle_elem)
 
     files["word/document.xml"] = ET.tostring(doc_tree, encoding="utf-8", xml_declaration=True)
 
