@@ -1,17 +1,11 @@
-#!/usr/bin/env python3
-"""
-Convert Markdown files to HTML, PDF, DOCX, or Apple Pages with 9 customizable themes and Amil/Apple/Terminal Design fidelity.
-Supports KaTeX math formulas, native Mermaid diagrams & graphs (with high-contrast dark & light themes), GitHub Flavored Markdown alerts, tables, and RTL/Persian.
-"""
-
-from __future__ import annotations
-
 import argparse
+import base64
 import html
 import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -22,10 +16,26 @@ from xml.etree import ElementTree as ET
 
 FORMATS = ("pages", "pdf", "html", "docx")
 
+WNS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+RNS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+WPNS = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+ANS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+PICNS = "http://schemas.openxmlformats.org/drawingml/2006/picture"
+ASVGNS = "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
+
+ET.register_namespace("w", WNS)
+ET.register_namespace("r", RNS)
+ET.register_namespace("wp", WPNS)
+ET.register_namespace("a", ANS)
+ET.register_namespace("pic", PICNS)
+ET.register_namespace("asvg", ASVGNS)
+
 _HERE = Path(__file__).resolve().parent
 VENDOR_DIR = _HERE.parent / "vendor"
 if not VENDOR_DIR.exists():
     VENDOR_DIR = Path.home() / ".gemini/config/skills/markdown-tools/vendor"
+if not VENDOR_DIR.exists():
+    VENDOR_DIR = Path.home() / ".gemini/config/skills/pages-tools/vendor"
 
 THEME_ALIASES: dict[str, str] = {
     # Amil Design Light
@@ -835,13 +845,259 @@ def is_persian_or_arabic(text: str) -> bool:
     return farsi_chars > 50
 
 
+
+def render_mermaid_to_svg_and_png(code: str, vendor_dir: Path) -> tuple[str, bytes, int, int]:
+    """Renders a Mermaid diagram string into pure vector SVG and high-res PNG bytes with EMU dimensions."""
+    mermaid_js = vendor_dir / "mermaid.js"
+    if not mermaid_js.exists():
+        mermaid_js = Path.home() / ".gemini/config/skills/markdown-tools/vendor/mermaid.js"
+    if not mermaid_js.exists():
+        mermaid_js = Path.home() / ".gemini/config/skills/pages-tools/vendor/mermaid.js"
+        
+    json_code = json.dumps(code)
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="file://{mermaid_js}"></script>
+<style>
+body {{ margin: 0; padding: 24px; background: #ffffff; display: inline-block; }}
+#container {{ display: inline-block; }}
+</style>
+</head>
+<body>
+<div id="container"></div>
+<script>
+window.addEventListener('DOMContentLoaded', async () => {{
+    try {{
+        mermaid.initialize({{ startOnLoad: false, theme: 'default', flowchart: {{ useMaxWidth: false, htmlLabels: true }} }});
+        const {{ svg }} = await mermaid.render('m_diag', {json_code});
+        document.getElementById('container').innerHTML = svg;
+    }} catch (e) {{
+        console.error(e);
+    }}
+}});
+</script>
+</body>
+</html>"""
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_html = Path(tmp_dir) / "diag.html"
+        tmp_png = Path(tmp_dir) / "diag.png"
+        tmp_html.write_text(html_content, encoding="utf-8")
+        
+        chrome_candidates = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
+        ]
+        chrome_bin = next((c for c in chrome_candidates if os.path.exists(c)), None)
+        if not chrome_bin:
+            raise RuntimeError("Headless Chrome is required to render Mermaid diagrams to vector layout.")
+            
+        res = subprocess.run([
+            chrome_bin,
+            "--headless=new",
+            "--disable-gpu",
+            "--allow-file-access-from-files",
+            "--enable-local-file-accesses",
+            "--virtual-time-budget=3000",
+            "--window-size=1400,900",
+            f"--screenshot={tmp_png}",
+            "--dump-dom",
+            f"file://{tmp_html}"
+        ], capture_output=True, text=True)
+        
+        m = re.search(r"(<svg[\s\S]*?</svg>)", res.stdout)
+        svg_code = m.group(1) if m else ""
+        png_data = tmp_png.read_bytes() if tmp_png.exists() else b""
+        
+        w_px, h_px = 600, 400
+        if svg_code:
+            vb_m = re.search(r'viewBox="([^"]+)"', svg_code)
+            if vb_m:
+                parts = [float(x) for x in vb_m.group(1).split()]
+                if len(parts) == 4:
+                    w_px, h_px = parts[2], parts[3]
+        
+        max_w_emu = 5029200
+        aspect = h_px / max(w_px, 1)
+        w_emu = min(int(w_px * 9525 * 1.2), max_w_emu)
+        h_emu = int(w_emu * aspect)
+        
+        return svg_code, png_data, w_emu, h_emu
+
+
+def build_ooxml_table(headers: list[str], aligns: list[str], rows: list[list[str]]) -> ET.Element:
+    """Builds a fully native, styled OOXML <w:tbl> table object."""
+    num_cols = max(len(headers), max((len(r) for r in rows), default=1))
+    col_w = int(9000 / max(num_cols, 1))
+    
+    tbl = ET.Element(f"{{{WNS}}}tbl")
+    tblPr = ET.SubElement(tbl, f"{{{WNS}}}tblPr")
+    tblW = ET.SubElement(tblPr, f"{{{WNS}}}tblW")
+    tblW.set(f"{{{WNS}}}w", "5000")
+    tblW.set(f"{{{WNS}}}type", "pct")
+    
+    tblBorders = ET.SubElement(tblPr, f"{{{WNS}}}tblBorders")
+    for b_name, b_sz, b_col in [("top", "8", "D2D2D7"), ("bottom", "12", "D2D2D7"), ("insideH", "4", "E5E5EA")]:
+        b = ET.SubElement(tblBorders, f"{{{WNS}}}{b_name}")
+        b.set(f"{{{WNS}}}val", "single")
+        b.set(f"{{{WNS}}}sz", b_sz)
+        b.set(f"{{{WNS}}}space", "0")
+        b.set(f"{{{WNS}}}color", b_col)
+    for b_name in ["left", "right", "insideV"]:
+        b = ET.SubElement(tblBorders, f"{{{WNS}}}{b_name}")
+        b.set(f"{{{WNS}}}val", "none")
+        
+    tblGrid = ET.SubElement(tbl, f"{{{WNS}}}tblGrid")
+    for _ in range(num_cols):
+        gc = ET.SubElement(tblGrid, f"{{{WNS}}}gridCol")
+        gc.set(f"{{{WNS}}}w", str(col_w))
+        
+    if headers:
+        tr = ET.SubElement(tbl, f"{{{WNS}}}tr")
+        trPr = ET.SubElement(tr, f"{{{WNS}}}trPr")
+        ET.SubElement(trPr, f"{{{WNS}}}tblHeader")
+        for idx, h_text in enumerate(headers):
+            align = aligns[idx] if idx < len(aligns) and aligns[idx] else "left"
+            tc = ET.SubElement(tr, f"{{{WNS}}}tc")
+            tcPr = ET.SubElement(tc, f"{{{WNS}}}tcPr")
+            shd = ET.SubElement(tcPr, f"{{{WNS}}}shd")
+            shd.set(f"{{{WNS}}}val", "clear")
+            shd.set(f"{{{WNS}}}color", "auto")
+            shd.set(f"{{{WNS}}}fill", "F4F4F6")
+            
+            p = ET.SubElement(tc, f"{{{WNS}}}p")
+            pPr = ET.SubElement(p, f"{{{WNS}}}pPr")
+            jc = ET.SubElement(pPr, f"{{{WNS}}}jc")
+            jc.set(f"{{{WNS}}}val", align)
+            sp = ET.SubElement(pPr, f"{{{WNS}}}spacing")
+            sp.set(f"{{{WNS}}}before", "80")
+            sp.set(f"{{{WNS}}}after", "80")
+            
+            r = ET.SubElement(p, f"{{{WNS}}}r")
+            rPr = ET.SubElement(r, f"{{{WNS}}}rPr")
+            ET.SubElement(rPr, f"{{{WNS}}}b")
+            rFonts = ET.SubElement(rPr, f"{{{WNS}}}rFonts")
+            rFonts.set(f"{{{WNS}}}ascii", "Helvetica Neue")
+            rFonts.set(f"{{{WNS}}}hAnsi", "Helvetica Neue")
+            sz = ET.SubElement(rPr, f"{{{WNS}}}sz")
+            sz.set(f"{{{WNS}}}val", "21")
+            
+            clean_h = re.sub(r"<[^>]+>", "", h_text).strip()
+            t = ET.SubElement(r, f"{{{WNS}}}t")
+            t.text = clean_h
+            
+    for row in rows:
+        tr = ET.SubElement(tbl, f"{{{WNS}}}tr")
+        for idx in range(num_cols):
+            cell_text = row[idx] if idx < len(row) else ""
+            align = aligns[idx] if idx < len(aligns) and aligns[idx] else "left"
+            tc = ET.SubElement(tr, f"{{{WNS}}}tc")
+            p = ET.SubElement(tc, f"{{{WNS}}}p")
+            pPr = ET.SubElement(p, f"{{{WNS}}}pPr")
+            jc = ET.SubElement(pPr, f"{{{WNS}}}jc")
+            jc.set(f"{{{WNS}}}val", align)
+            sp = ET.SubElement(pPr, f"{{{WNS}}}spacing")
+            sp.set(f"{{{WNS}}}before", "60")
+            sp.set(f"{{{WNS}}}after", "60")
+            
+            clean_text = re.sub(r"<[^>]+>", "", cell_text).strip()
+            is_bold = "**" in cell_text or "__" in cell_text or "<strong>" in cell_text or "PASSED" in cell_text
+            is_italic = "*" in clean_text and not is_bold
+            clean_text = clean_text.replace("**", "").replace("__", "").replace("*", "")
+            
+            r = ET.SubElement(p, f"{{{WNS}}}r")
+            rPr = ET.SubElement(r, f"{{{WNS}}}rPr")
+            rFonts = ET.SubElement(rPr, f"{{{WNS}}}rFonts")
+            rFonts.set(f"{{{WNS}}}ascii", "Helvetica Neue")
+            rFonts.set(f"{{{WNS}}}hAnsi", "Helvetica Neue")
+            sz = ET.SubElement(rPr, f"{{{WNS}}}sz")
+            sz.set(f"{{{WNS}}}val", "20")
+            if is_bold:
+                ET.SubElement(rPr, f"{{{WNS}}}b")
+            if is_italic:
+                ET.SubElement(rPr, f"{{{WNS}}}i")
+            if "color: #059669" in cell_text or "PASSED" in cell_text:
+                col = ET.SubElement(rPr, f"{{{WNS}}}color")
+                col.set(f"{{{WNS}}}val", "059669")
+            elif "color: #2563eb" in cell_text:
+                col = ET.SubElement(rPr, f"{{{WNS}}}color")
+                col.set(f"{{{WNS}}}val", "2563EB")
+                
+            t = ET.SubElement(r, f"{{{WNS}}}t")
+            t.text = clean_text
+            
+    return tbl
+
+
+def build_ooxml_drawing(r_id_svg: str, r_id_png: str, cx: int, cy: int, desc: str = "Diagram") -> ET.Element:
+    """Builds a DrawingML <w:p> containing an embedded vector diagram with SVG and high-res PNG fallback."""
+    p = ET.Element(f"{{{WNS}}}p")
+    pPr = ET.SubElement(p, f"{{{WNS}}}pPr")
+    jc = ET.SubElement(pPr, f"{{{WNS}}}jc")
+    jc.set(f"{{{WNS}}}val", "center")
+    sp = ET.SubElement(pPr, f"{{{WNS}}}spacing")
+    sp.set(f"{{{WNS}}}before", "140")
+    sp.set(f"{{{WNS}}}after", "140")
+    
+    r = ET.SubElement(p, f"{{{WNS}}}r")
+    drawing = ET.SubElement(r, f"{{{WNS}}}drawing")
+    inline = ET.SubElement(drawing, f"{{{WPNS}}}inline")
+    inline.set("distT", "0"); inline.set("distB", "0"); inline.set("distL", "0"); inline.set("distR", "0")
+    
+    extent = ET.SubElement(inline, f"{{{WPNS}}}extent")
+    extent.set("cx", str(cx)); extent.set("cy", str(cy))
+    
+    docPr = ET.SubElement(inline, f"{{{WPNS}}}docPr")
+    docPr.set("id", "100"); docPr.set("name", desc)
+    
+    graphic = ET.SubElement(inline, f"{{{ANS}}}graphic")
+    gdata = ET.SubElement(graphic, f"{{{ANS}}}graphicData")
+    gdata.set("uri", "http://schemas.openxmlformats.org/drawingml/2006/picture")
+    
+    pic = ET.SubElement(gdata, f"{{{PICNS}}}pic")
+    nvPicPr = ET.SubElement(pic, f"{{{PICNS}}}nvPicPr")
+    cNvPr = ET.SubElement(nvPicPr, f"{{{PICNS}}}cNvPr")
+    cNvPr.set("id", "100"); cNvPr.set("name", desc)
+    ET.SubElement(nvPicPr, f"{{{PICNS}}}cNvPicPr")
+    
+    blipFill = ET.SubElement(pic, f"{{{PICNS}}}blipFill")
+    blip = ET.SubElement(blipFill, f"{{{ANS}}}blip")
+    # For Apple Pages, direct SVG embedding works seamlessly; for Word, use SVG extension
+    blip.set(f"{{{RNS}}}embed", r_id_svg)
+    extLst = ET.SubElement(blip, f"{{{ANS}}}extLst")
+    ext = ET.SubElement(extLst, f"{{{ANS}}}ext")
+    ext.set("uri", "{96DAC542-7CC2-4438-873DA00B022F820E}")
+    svgBlip = ET.SubElement(ext, f"{{{ASVGNS}}}svgBlip")
+    svgBlip.set(f"{{{RNS}}}embed", r_id_svg)
+    
+    stretch = ET.SubElement(blipFill, f"{{{ANS}}}stretch")
+    ET.SubElement(stretch, f"{{{ANS}}}fillRect")
+    
+    spPr = ET.SubElement(pic, f"{{{PICNS}}}spPr")
+    xfrm = ET.SubElement(spPr, f"{{{ANS}}}xfrm")
+    off = ET.SubElement(xfrm, f"{{{ANS}}}off")
+    off.set("x", "0"); off.set("y", "0")
+    ext_s = ET.SubElement(xfrm, f"{{{ANS}}}ext")
+    ext_s.set("cx", str(cx)); ext_s.set("cy", str(cy))
+    prstGeom = ET.SubElement(spPr, f"{{{ANS}}}prstGeom")
+    prstGeom.set("prst", "rect")
+    ET.SubElement(prstGeom, f"{{{ANS}}}avLst")
+    
+    return p
+
+
 def parse_markdown_to_html(
     md_text: str,
     title: str = "",
     theme: str = "amil-light",
     custom_css: str = "",
     force_rtl: Optional[bool] = None,
-) -> str:
+    for_textutil: bool = False,
+) -> tuple[str, dict]:
     lines = md_text.replace("\r\n", "\n").split("\n")
     out: list[str] = []
     in_code = False
@@ -851,6 +1107,8 @@ def parse_markdown_to_html(
     table_headers: list[str] = []
     table_aligns: list[str] = []
     table_rows: list[list[str]] = []
+    tables_meta: list[tuple[list[str], list[str], list[list[str]]]] = []
+    diagrams_meta: list[str] = []
     in_list = False
     list_type: str | None = None
     in_callout = False
@@ -906,24 +1164,29 @@ def parse_markdown_to_html(
     def close_table() -> None:
         nonlocal in_table, table_headers, table_aligns, table_rows
         if in_table:
-            res = ['<div class="table-wrapper"><table>']
-            if table_headers:
-                res.append("<thead><tr>")
-                for col_idx, hdr in enumerate(table_headers):
-                    align = f' style="text-align: {table_aligns[col_idx]}"' if col_idx < len(table_aligns) and table_aligns[col_idx] else ""
-                    res.append(f"<th{align}>{inline_fmt(hdr)}</th>")
-                res.append("</tr></thead>")
-            if table_rows:
-                res.append("<tbody>")
-                for row in table_rows:
-                    res.append("<tr>")
-                    for col_idx, cell in enumerate(row):
+            if for_textutil:
+                tbl_idx = len(tables_meta)
+                tables_meta.append((table_headers, table_aligns, table_rows))
+                out.append(f'<p style="font-family: Arial; font-size: 10pt;">__FORMA_TABLE_START_{tbl_idx}__</p>')
+            else:
+                res = ['<div class="table-wrapper"><table>']
+                if table_headers:
+                    res.append("<thead><tr>")
+                    for col_idx, hdr in enumerate(table_headers):
                         align = f' style="text-align: {table_aligns[col_idx]}"' if col_idx < len(table_aligns) and table_aligns[col_idx] else ""
-                        res.append(f"<td{align}>{inline_fmt(cell)}</td>")
-                    res.append("</tr>")
-                res.append("</tbody>")
-            res.append("</table></div>")
-            out.append("\n".join(res))
+                        res.append(f"<th{align}>{inline_fmt(hdr)}</th>")
+                    res.append("</tr></thead>")
+                if table_rows:
+                    res.append("<tbody>")
+                    for row in table_rows:
+                        res.append("<tr>")
+                        for col_idx, cell in enumerate(row):
+                            align = f' style="text-align: {table_aligns[col_idx]}"' if col_idx < len(table_aligns) and table_aligns[col_idx] else ""
+                            res.append(f"<td{align}>{inline_fmt(cell)}</td>")
+                        res.append("</tr>")
+                    res.append("</tbody>")
+                res.append("</table></div>")
+                out.append("\n".join(res))
             in_table = False
             table_headers = []
             table_aligns = []
@@ -970,7 +1233,12 @@ def parse_markdown_to_html(
             if in_code:
                 raw_code = "\n".join(code_lines)
                 if code_lang.lower() == "mermaid":
-                    out.append(f'<div class="mermaid-container"><div class="mermaid">{html.escape(raw_code)}</div></div>')
+                    if for_textutil:
+                        diag_idx = len(diagrams_meta)
+                        diagrams_meta.append(raw_code)
+                        out.append(f'<p style="font-family: Arial; font-size: 10pt;">__FORMA_DIAGRAM_START_{diag_idx}__</p>')
+                    else:
+                        out.append(f'<div class="mermaid-container"><div class="mermaid">{html.escape(raw_code)}</div></div>')
                 else:
                     code_content = html.escape(raw_code)
                     lang_label = html.escape(code_lang) if code_lang else "CODE"
@@ -1117,7 +1385,7 @@ def parse_markdown_to_html(
             continue
 
         if in_list and not line.strip():
-            if idx + 1 < len(lines) and re.match(r"^\s*([-*+]|\d+\.)\s+", lines[idx + 1]):
+            if idx + 1 < len(lines) and re.match(r"^\s*([*+]|\d+\.)\s+", lines[idx + 1]):
                 idx += 1
                 continue
             close_list()
@@ -1173,7 +1441,7 @@ def parse_markdown_to_html(
         "fontFamily": "Inter, Vazirmatn, -apple-system, sans-serif"
     })
 
-    return f"""<!DOCTYPE html>
+    full_html = f"""<!DOCTYPE html>
 <html lang="{lang_code}" {dir_attr}>
 <head>
 <meta charset="utf-8">
@@ -1220,18 +1488,21 @@ document.addEventListener("DOMContentLoaded", function() {{
 </script>
 </body>
 </html>"""
+    return full_html, {"tables": tables_meta, "diagrams": diagrams_meta}
 
 
-def postprocess_docx_styles(docx_path: str | Path) -> None:
+def postprocess_docx_styles(
+    docx_path: str | Path,
+    tables: list | None = None,
+    diagrams: list | None = None,
+    vendor_dir: Path | None = None,
+) -> None:
     """
-    Post-processes a DOCX file produced by textutil (or HTML conversion) to inject
-    Apple Pages / Microsoft Word OOXML named paragraph and character styles:
-    Title, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Body,
-    Block Quote, Code, Bullet List, Numbered List.
+    Post-processes a DOCX file produced by textutil to inject:
+    1. Genuine OOXML tables (<w:tbl>) with header and cell styling
+    2. Embedded vector diagrams (<w:drawing>) with SVG and Retina PNG fallback
+    3. Apple Pages / Microsoft Word named paragraph styles (Title, Heading 1-6, Body, Block Quote, Code, Bullet List, Numbered List)
     """
-    WNS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    ET.register_namespace("w", WNS)
-
     docx_p = Path(docx_path)
     if not docx_p.is_file():
         return
@@ -1245,6 +1516,7 @@ def postprocess_docx_styles(docx_path: str | Path) -> None:
     if "word/document.xml" not in files:
         return
 
+    # Injected styles.xml
     styles_xml_content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/></w:style>
@@ -1269,13 +1541,37 @@ def postprocess_docx_styles(docx_path: str | Path) -> None:
     ct_str = files.get("[Content_Types].xml", b"").decode("utf-8", errors="ignore")
     if ct_str and "word/styles.xml" not in ct_str:
         ct_str = ct_str.replace("</Types>", '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>')
-        files["[Content_Types].xml"] = ct_str.encode("utf-8")
+    if ct_str and 'Extension="svg"' not in ct_str:
+        ct_str = ct_str.replace("</Types>", '<Default Extension="svg" ContentType="image/svg+xml"/><Default Extension="png" ContentType="image/png"/></Types>')
+    files["[Content_Types].xml"] = ct_str.encode("utf-8")
 
-    if "word/_rels/document.xml.rels" in files:
-        rels_str = files["word/_rels/document.xml.rels"].decode("utf-8", errors="ignore")
-        if "styles.xml" not in rels_str:
-            rels_str = rels_str.replace("</Relationships>", '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
-            files["word/_rels/document.xml.rels"] = rels_str.encode("utf-8")
+    rels_str = files.get("word/_rels/document.xml.rels", b"").decode("utf-8", errors="ignore")
+    if not rels_str:
+        rels_str = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'
+    if "styles.xml" not in rels_str:
+        rels_str = rels_str.replace("</Relationships>", '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
+
+    # Process Diagrams
+    rendered_diagrams: dict[int, tuple[int, int]] = {}
+    v_dir = vendor_dir or VENDOR_DIR
+    if diagrams:
+        for d_idx, d_code in enumerate(diagrams):
+            try:
+                svg_data, png_data, cx, cy = render_mermaid_to_svg_and_png(d_code, v_dir)
+                svg_name = f"media/diagram_{d_idx}.svg"
+                png_name = f"media/diagram_{d_idx}.png"
+                files[f"word/{svg_name}"] = svg_data.encode("utf-8")
+                files[f"word/{png_name}"] = png_data
+                
+                r_svg = f"rIdSvg{d_idx}"
+                r_png = f"rIdImg{d_idx}"
+                if r_svg not in rels_str:
+                    rels_str = rels_str.replace("</Relationships>", f'<Relationship Id="{r_svg}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{svg_name}"/><Relationship Id="{r_png}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{png_name}"/></Relationships>')
+                rendered_diagrams[d_idx] = (cx, cy)
+            except Exception as e:
+                print(f"Warning: Diagram {d_idx} render skipped: {e}", file=sys.stderr)
+
+    files["word/_rels/document.xml.rels"] = rels_str.encode("utf-8")
 
     try:
         doc_tree = ET.fromstring(files["word/document.xml"])
@@ -1286,14 +1582,43 @@ def postprocess_docx_styles(docx_path: str | Path) -> None:
     if body is None:
         return
 
-    paras = body.findall(f"{{{WNS}}}p")
     first_heading_seen = False
+    children = list(body)
 
-    for p in paras:
+    for elem in children:
+        if elem.tag != f"{{{WNS}}}p":
+            continue
+            
+        p = elem
         text = "".join(p.itertext()).strip()
         if not text:
             continue
 
+        # Check Table Marker
+        tbl_m = re.match(r"^__FORMA_TABLE_START_(\d+)__$", text)
+        if tbl_m:
+            tbl_idx = int(tbl_m.group(1))
+            if tables and tbl_idx < len(tables):
+                headers, aligns, rows = tables[tbl_idx]
+                tbl_node = build_ooxml_table(headers, aligns, rows)
+                idx_in_body = list(body).index(p)
+                body.remove(p)
+                body.insert(idx_in_body, tbl_node)
+                continue
+
+        # Check Diagram Marker
+        diag_m = re.match(r"^__FORMA_DIAGRAM_START_(\d+)__$", text)
+        if diag_m:
+            diag_idx = int(diag_m.group(1))
+            if diag_idx in rendered_diagrams:
+                cx, cy = rendered_diagrams[diag_idx]
+                draw_node = build_ooxml_drawing(f"rIdSvg{diag_idx}", f"rIdImg{diag_idx}", cx, cy, f"Diagram {diag_idx}")
+                idx_in_body = list(body).index(p)
+                body.remove(p)
+                body.insert(idx_in_body, draw_node)
+                continue
+
+        # Otherwise format standard paragraphs with Named Styles
         rPr_first = p.find(f".//{{{WNS}}}rPr")
         font_name = ""
         sz_val = 0
@@ -1367,8 +1692,8 @@ def postprocess_docx_styles(docx_path: str | Path) -> None:
         with zipfile.ZipFile(docx_p, "w") as zout:
             for name, data in files.items():
                 zout.writestr(name, data)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error packing DOCX: {e}", file=sys.stderr)
 
 
 def convert_markdown(
@@ -1391,18 +1716,18 @@ def convert_markdown(
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     content = source.read_text(encoding="utf-8")
-    rendered_html = parse_markdown_to_html(content, title=source.stem, theme=theme, custom_css=custom_css, force_rtl=rtl)
 
     if output_format == "html":
+        rendered_html, _ = parse_markdown_to_html(content, title=source.stem, theme=theme, custom_css=custom_css, force_rtl=rtl, for_textutil=False)
         destination.write_text(rendered_html, encoding="utf-8")
         return destination
 
     if output_format == "pdf":
+        rendered_html, _ = parse_markdown_to_html(content, title=source.stem, theme=theme, custom_css=custom_css, force_rtl=rtl, for_textutil=False)
         with tempfile.TemporaryDirectory(prefix="convert-pdf-") as tmp_dir:
             tmp_html = Path(tmp_dir) / f"{source.stem}.html"
             tmp_html.write_text(rendered_html, encoding="utf-8")
 
-            # Try Chrome Headless with local file access and compositor readiness
             chrome_candidates = [
                 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
                 "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -1426,7 +1751,6 @@ def convert_markdown(
                     if res.returncode == 0 and destination.is_file():
                         return destination
 
-            # Fallback via cupsfilter
             if shutil.which("cupsfilter"):
                 subprocess.run(f'cupsfilter "{tmp_html}" > "{destination}"', shell=True, check=True)
                 return destination
@@ -1434,23 +1758,25 @@ def convert_markdown(
         raise RuntimeError("PDF conversion requires Google Chrome or cupsfilter.")
 
     if output_format == "docx":
+        rendered_html, meta = parse_markdown_to_html(content, title=source.stem, theme=theme, custom_css=custom_css, force_rtl=rtl, for_textutil=True)
         with tempfile.TemporaryDirectory(prefix="convert-docx-") as tmp_dir:
             tmp_html = Path(tmp_dir) / f"{source.stem}.html"
             tmp_html.write_text(rendered_html, encoding="utf-8")
             subprocess.run(["textutil", "-convert", "docx", "-output", str(destination), str(tmp_html)], check=True)
-            postprocess_docx_styles(destination)
+            postprocess_docx_styles(destination, tables=meta["tables"], diagrams=meta["diagrams"], vendor_dir=VENDOR_DIR)
         return destination
 
     if output_format == "pages":
         has_pages = sys.platform == "darwin" and (os.path.exists("/Applications/Pages.app") or os.path.exists("/Applications/Pages Creator Studio.app"))
         if not has_pages:
             raise RuntimeError("Pages output requires macOS with Apple Pages installed.")
+        rendered_html, meta = parse_markdown_to_html(content, title=source.stem, theme=theme, custom_css=custom_css, force_rtl=rtl, for_textutil=True)
         with tempfile.TemporaryDirectory(prefix="convert-pages-") as tmp_dir:
             tmp_html = Path(tmp_dir) / f"{source.stem}.html"
             tmp_html.write_text(rendered_html, encoding="utf-8")
             tmp_docx = Path(tmp_dir) / f"{source.stem}.docx"
             subprocess.run(["textutil", "-convert", "docx", "-output", str(tmp_docx), str(tmp_html)], check=True)
-            postprocess_docx_styles(tmp_docx)
+            postprocess_docx_styles(tmp_docx, tables=meta["tables"], diagrams=meta["diagrams"], vendor_dir=VENDOR_DIR)
 
             if destination.exists():
                 if destination.is_dir(): shutil.rmtree(destination)
