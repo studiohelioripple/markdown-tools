@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 pages_standardize.py — Standardize / Stylize a document into pure named styles
 -------------------------------------------------------------------------------

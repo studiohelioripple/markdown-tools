@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 forma_cli.py — Unified CLI interface for the Forma Document Protocol
 ----------------------------------------------------------------------

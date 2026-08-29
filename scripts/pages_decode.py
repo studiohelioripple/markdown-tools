@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 pages_decode.py — Extract content + styles from an Apple Pages file
 -------------------------------------------------------------------

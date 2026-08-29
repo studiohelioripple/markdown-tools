@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 pages_restyle.py — Apply a style sheet to an Apple Pages or Markdown document
 -----------------------------------------------------------------------------
