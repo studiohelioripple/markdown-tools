@@ -79,9 +79,16 @@ THEME_ALIASES: dict[str, str] = {
     "slate-amber": "terminal-dark",
     "pallet": "terminal-dark",
     "palette": "terminal-dark",
+    "google": "google-material-light",
+    "material": "google-material-light",
+    "google-dark": "google-material-dark",
+    "material-dark": "google-material-dark",
+    "vscode-light": "vscode-light",
+    "minimal": "minimal-light",
+    "minimal-dark": "minimal-dark",
 }
 
-DARK_THEMES = {"amil-dark", "apple-dark", "vscode-dark", "nord-frost", "terminal-dark"}
+DARK_THEMES = {"amil-dark", "apple-dark", "vscode-dark", "nord-frost", "terminal-dark", "google-material-dark", "minimal-dark"}
 
 def normalize_theme_name(theme: str) -> str:
     """Normalize a theme alias or name into one of the canonical theme IDs."""
@@ -122,9 +129,9 @@ THEME_CONFIGS: dict[str, dict[str, Any]] = {
             --accent-primary: #2563eb;
             --accent-hover: #1d4ed8;
             --accent-subtle: #dbeafe;
-            --code-bg: #0f172a;
-            --code-header: #1e293b;
-            --code-text: #e2e8f0;
+            --code-bg: #f8fafc;
+            --code-header: #e2e8f0;
+            --code-text: #0f172a;
             --inline-code-bg: #dbe4ee;
             --inline-code-color: #0f172a;
             --table-header: #dde3eb;
@@ -257,9 +264,9 @@ THEME_CONFIGS: dict[str, dict[str, Any]] = {
             --accent-primary: #0071e3;
             --accent-hover: #0077ed;
             --accent-subtle: #f0f7ff;
-            --code-bg: #1e1e24;
-            --code-header: #2c2c34;
-            --code-text: #f5f5f7;
+            --code-bg: #f5f5f7;
+            --code-header: #e8e8ed;
+            --code-text: #1d1d1f;
             --inline-code-bg: #f2f2f7;
             --inline-code-color: #1d1d1f;
             --table-header: #fbfbfd;
@@ -482,9 +489,9 @@ THEME_CONFIGS: dict[str, dict[str, Any]] = {
             --accent-primary: #9b111e;
             --accent-hover: #7a0d17;
             --accent-subtle: #faeae8;
-            --code-bg: #26211e;
-            --code-header: #362e2a;
-            --code-text: #f7f4ed;
+            --code-bg: #efe9dc;
+            --code-header: #dfd6c7;
+            --code-text: #26211e;
             --inline-code-bg: #efe9dc;
             --inline-code-color: #9b111e;
             --table-header: #f2ece0;
@@ -492,6 +499,231 @@ THEME_CONFIGS: dict[str, dict[str, Any]] = {
             --shadow-card: 0 4px 20px rgba(90, 70, 50, 0.07);
             --shadow-code: 0 6px 18px rgba(90, 70, 50, 0.15);
             --card-radius: 12px;
+        }
+        """
+    },
+    "google-material-light": {
+        "name": "Google Material Light",
+        "description": "Google Material Design 3 aesthetic with light background, prominent primary color (#1a73e8), and elevation shadows.",
+        "is_dark": False,
+        "mermaid_theme": "default",
+        "mermaid_vars": {
+            "darkMode": False,
+            "background": "#ffffff",
+            "mainBkg": "#f8f9fa",
+            "primaryColor": "#1a73e8",
+            "primaryTextColor": "#202124",
+            "primaryBorderColor": "#dadce0",
+            "lineColor": "#5f6368",
+            "secondaryColor": "#e8eaed",
+            "tertiaryColor": "#ffffff"
+        },
+        "css": """
+        :root {
+            --font-sans: "Google Sans", Roboto, "Helvetica Neue", sans-serif;
+            --font-fa: "Vazirmatn", "Shabnam", Roboto, sans-serif;
+            --font-mono: "Roboto Mono", Consolas, monospace;
+            --bg-page: #f8f9fa;
+            --bg-card: #ffffff;
+            --bg-subtle: #f1f3f4;
+            --text-primary: #202124;
+            --text-secondary: #5f6368;
+            --text-muted: #80868b;
+            --border-subtle: #dadce0;
+            --border-card: #dadce0;
+            --accent-primary: #1a73e8;
+            --accent-hover: #174ea6;
+            --accent-subtle: #e8f0fe;
+            --code-bg: #f1f3f4;
+            --code-header: #e8eaed;
+            --code-text: #202124;
+            --inline-code-bg: #f1f3f4;
+            --inline-code-color: #d93025;
+            --table-header: #f8f9fa;
+            --table-zebra: #ffffff;
+            --shadow-card: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            --shadow-code: 0 1px 2px 0 rgba(60,64,67,0.3);
+            --card-radius: 8px;
+        }
+        """
+    },
+    "google-material-dark": {
+        "name": "Google Material Dark",
+        "description": "Google Material Design 3 dark aesthetic (#202124 canvas, #303134 surfaces).",
+        "is_dark": True,
+        "mermaid_theme": "dark",
+        "mermaid_vars": {
+            "darkMode": True,
+            "background": "#202124",
+            "mainBkg": "#303134",
+            "primaryColor": "#8ab4f8",
+            "primaryTextColor": "#e8eaed",
+            "primaryBorderColor": "#5f6368",
+            "lineColor": "#9aa0a6",
+            "secondaryColor": "#3c4043",
+            "tertiaryColor": "#202124"
+        },
+        "css": """
+        :root {
+            --font-sans: "Google Sans", Roboto, "Helvetica Neue", sans-serif;
+            --font-fa: "Vazirmatn", "Shabnam", Roboto, sans-serif;
+            --font-mono: "Roboto Mono", Consolas, monospace;
+            --bg-page: #202124;
+            --bg-card: #303134;
+            --bg-subtle: #3c4043;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --text-muted: #80868b;
+            --border-subtle: #5f6368;
+            --border-card: #5f6368;
+            --accent-primary: #8ab4f8;
+            --accent-hover: #aecbfa;
+            --accent-subtle: rgba(138, 180, 248, 0.12);
+            --code-bg: #28292c;
+            --code-header: #3c4043;
+            --code-text: #e8eaed;
+            --inline-code-bg: #3c4043;
+            --inline-code-color: #f28b82;
+            --table-header: #303134;
+            --table-zebra: #28292c;
+            --shadow-card: 0 1px 2px 0 rgba(0,0,0,0.3), 0 2px 6px 2px rgba(0,0,0,0.15);
+            --shadow-code: 0 1px 2px 0 rgba(0,0,0,0.3);
+            --card-radius: 8px;
+        }
+        """
+    },
+    "vscode-light": {
+        "name": "VS Code Light",
+        "description": "Visual Studio Code editor light theme.",
+        "is_dark": False,
+        "mermaid_theme": "default",
+        "mermaid_vars": {
+            "darkMode": False,
+            "background": "#ffffff",
+            "mainBkg": "#f3f3f3",
+            "primaryColor": "#007acc",
+            "primaryTextColor": "#333333",
+            "primaryBorderColor": "#cccccc",
+            "lineColor": "#007acc",
+            "secondaryColor": "#e5e5e5",
+            "tertiaryColor": "#ffffff"
+        },
+        "css": """
+        :root {
+            --font-sans: "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+            --font-fa: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+            --font-mono: Consolas, "SF Mono", Monaco, "Courier New", monospace;
+            --bg-page: #f3f3f3;
+            --bg-card: #ffffff;
+            --bg-subtle: #e5e5e5;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border-subtle: #cccccc;
+            --border-card: #e4e4e4;
+            --accent-primary: #007acc;
+            --accent-hover: #005a9e;
+            --accent-subtle: rgba(0, 122, 204, 0.1);
+            --code-bg: #f8f8f8;
+            --code-header: #e5e5e5;
+            --code-text: #333333;
+            --inline-code-bg: #e5e5e5;
+            --inline-code-color: #a31515;
+            --table-header: #f3f3f3;
+            --table-zebra: #ffffff;
+            --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.15);
+            --shadow-code: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --card-radius: 0px;
+        }
+        """
+    },
+    "minimal-light": {
+        "name": "Minimal Light",
+        "description": "Ultra clean minimal monochrome aesthetic without shadows or borders.",
+        "is_dark": False,
+        "mermaid_theme": "neutral",
+        "mermaid_vars": {
+            "darkMode": False,
+            "background": "#ffffff",
+            "mainBkg": "#ffffff",
+            "primaryColor": "#000000",
+            "primaryTextColor": "#000000",
+            "primaryBorderColor": "#e0e0e0",
+            "lineColor": "#000000",
+            "secondaryColor": "#f5f5f5",
+            "tertiaryColor": "#ffffff"
+        },
+        "css": """
+        :root {
+            --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            --font-fa: "Vazirmatn", Tahoma, sans-serif;
+            --font-mono: monospace;
+            --bg-page: #ffffff;
+            --bg-card: #ffffff;
+            --bg-subtle: #f9f9f9;
+            --text-primary: #111111;
+            --text-secondary: #555555;
+            --text-muted: #999999;
+            --border-subtle: #eeeeee;
+            --border-card: transparent;
+            --accent-primary: #000000;
+            --accent-hover: #333333;
+            --accent-subtle: #f0f0f0;
+            --code-bg: #f9f9f9;
+            --code-header: #f0f0f0;
+            --code-text: #111111;
+            --inline-code-bg: #f5f5f5;
+            --inline-code-color: #000000;
+            --table-header: #f9f9f9;
+            --table-zebra: #ffffff;
+            --shadow-card: none;
+            --shadow-code: none;
+            --card-radius: 0px;
+        }
+        """
+    },
+    "minimal-dark": {
+        "name": "Minimal Dark",
+        "description": "Ultra clean minimal monochrome dark aesthetic.",
+        "is_dark": True,
+        "mermaid_theme": "dark",
+        "mermaid_vars": {
+            "darkMode": True,
+            "background": "#000000",
+            "mainBkg": "#000000",
+            "primaryColor": "#ffffff",
+            "primaryTextColor": "#ffffff",
+            "primaryBorderColor": "#333333",
+            "lineColor": "#ffffff",
+            "secondaryColor": "#111111",
+            "tertiaryColor": "#000000"
+        },
+        "css": """
+        :root {
+            --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            --font-fa: "Vazirmatn", Tahoma, sans-serif;
+            --font-mono: monospace;
+            --bg-page: #000000;
+            --bg-card: #000000;
+            --bg-subtle: #111111;
+            --text-primary: #eeeeee;
+            --text-secondary: #aaaaaa;
+            --text-muted: #666666;
+            --border-subtle: #222222;
+            --border-card: transparent;
+            --accent-primary: #ffffff;
+            --accent-hover: #cccccc;
+            --accent-subtle: #222222;
+            --code-bg: #111111;
+            --code-header: #222222;
+            --code-text: #eeeeee;
+            --inline-code-bg: #222222;
+            --inline-code-color: #ffffff;
+            --table-header: #111111;
+            --table-zebra: #000000;
+            --shadow-card: none;
+            --shadow-code: none;
+            --card-radius: 0px;
         }
         """
     }
@@ -627,6 +859,13 @@ CORE_CSS_TEMPLATE = """
             padding: 18px 22px;
             overflow-x: auto;
             background: transparent;
+        }
+        
+        .simple-code-block {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 6px !important;
+            margin: 1.2em 0 !important;
         }
 
         .code-block code {
@@ -1258,14 +1497,21 @@ def parse_markdown_to_html(
                         out.append(f'<div class="mermaid-container"><div class="mermaid">{html.escape(raw_code)}</div></div>')
                 else:
                     code_content = html.escape(raw_code)
-                    lang_label = html.escape(code_lang) if code_lang else "CODE"
-                    lang_header = (
-                        f'<div class="code-header">'
-                        f'<div class="code-header-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>'
-                        f'<span class="code-lang">{lang_label}</span>'
-                        f'</div>'
-                    )
-                    out.append(f'<div class="code-block">{lang_header}<pre><code class="language-{html.escape(code_lang)}">{code_content}</code></pre></div>')
+                    lang_label = html.escape(code_lang) if code_lang else ""
+                    normalized_t = normalize_theme_name(theme)
+                    is_mac_style = normalized_t in ["amil-light", "amil-dark", "apple-light", "apple-dark"]
+                    
+                    if is_mac_style:
+                        lang_header = ""
+                        if lang_label:
+                            lang_header = (
+                                f'<div class="code-header">'
+                                f'<span class="code-lang">{lang_label}</span>'
+                                f'</div>'
+                            )
+                        out.append(f'<div class="code-block">{lang_header}<pre><code class="language-{html.escape(code_lang)}">{code_content}</code></pre></div>')
+                    else:
+                        out.append(f'<div class="code-block simple-code-block"><pre><code class="language-{html.escape(code_lang)}">{code_content}</code></pre></div>')
                 in_code = False
                 code_lines = []
                 code_lang = ""

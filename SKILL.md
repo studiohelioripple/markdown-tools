@@ -2,8 +2,8 @@
 name: markdown-tools
 description: >-
   Comprehensive suite for Markdown processing, multi-target conversion (PDF, HTML, Apple Pages, DOCX),
-  custom themes, and layout-preserving translation. Features 9 curated themes (Amil Design Light/Dark,
-  Terminal Dark / CLI Slate & Amber, Apple Design Light/Dark, VS Code Dark, GitHub Light, Nord Frost, Editorial Serif),
+  custom themes, and layout-preserving translation. Features 14 curated themes (Amil Design Light/Dark,
+  Terminal Dark / CLI Slate & Amber, Apple Design Light/Dark, VS Code Light/Dark, Google Material Light/Dark, Minimal Light/Dark, GitHub Light, Nord Frost, Editorial Serif),
   native Mermaid diagram rendering (with dark/light contrast), KaTeX math formulas, callout banners, RTL/Persian support,
   and OOXML named paragraph style bindings for Apple Pages and Microsoft Word.
 ---
@@ -19,7 +19,7 @@ Unified engine for Markdown processing, formatting, translation, and multi-forma
 
 ---
 
-## 1. The 9 Curated Design Themes
+## 1. The 14 Curated Design Themes
 
 | Theme ID | Mode | Inspiration & Visual Style | Best Use Cases |
 |---|---|---|---|
@@ -32,6 +32,11 @@ Unified engine for Markdown processing, formatting, translation, and multi-forma
 | `github-light` | Light | GitHub Primer canvas (`#f6f8fa`), crisp white card, GitHub blue (`#0969da`), authentic GFM alerts and table styling. | Open-source guides, README exports, GitHub-style docs |
 | `nord-frost` | Dark | Arctic Polar Night (`#242933`), Snow Storm text, Frost ice blue (`#88c0d0`), and Aurora green/purple highlights. | Minimalist aesthetic docs, developer guides, calm dark mode |
 | `editorial-serif` | Light | Warm ivory bookish paper (`#f7f4ed`), deep espresso ink (`#26211e`), New York serif typography, royal crimson accents (`#9b111e`). | Academic papers, essays, legal texts, literary publishing |
+| `google-material-light` | Light | Google Material Design 3 aesthetic (`#f8f9fa` canvas), `#ffffff` card, prominent primary color (`#1a73e8`), and elevation shadows. | Product specs, modern web-like documents, clean proposals |
+| `google-material-dark` | Dark | Google Material Design 3 dark aesthetic (`#202124` canvas, `#303134` surfaces). | Dark mode product docs, developer tools, technical specs |
+| `vscode-light` | Light | Authentic VS Code editor light theme. | Code walkthroughs, tutorials, code-heavy docs |
+| `minimal-light` | Light | Ultra clean minimal monochrome aesthetic without shadows or borders. | Distraction-free reading, print-friendly docs |
+| `minimal-dark` | Dark | Ultra clean minimal monochrome dark aesthetic. | Focused reading, pure dark text editing |
 
 ### Theme Aliases
 All previous theme names automatically map to the canonical themes:
@@ -44,6 +49,9 @@ All previous theme names automatically map to the canonical themes:
 - `github`, `primer` → `github-light`
 - `nord`, `arctic` → `nord-frost`
 - `classic`, `academic`, `editorial`, `serif`, `new-york` → `editorial-serif`
+- `google`, `material` → `google-material-light`
+- `google-dark`, `material-dark` → `google-material-dark`
+- `minimal` → `minimal-light`
 
 ---
 
