@@ -814,6 +814,8 @@ CORE_CSS_TEMPLATE = """
             font-size: 0.88em;
             font-weight: 600;
             border: 1px solid var(--border-subtle);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .code-block {
@@ -857,7 +859,9 @@ CORE_CSS_TEMPLATE = """
         .code-block pre {
             margin: 0;
             padding: 18px 22px;
-            overflow-x: auto;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
             background: transparent;
         }
         
