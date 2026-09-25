@@ -36,7 +36,7 @@ Unified engine for Markdown processing, formatting, translation, and multi-forma
 | `google-material-dark` | Dark | Google Material Design 3 dark aesthetic (`#202124` canvas, `#303134` surfaces). | Dark mode product docs, developer tools, technical specs |
 | `vscode-light` | Light | Authentic VS Code editor light theme. | Code walkthroughs, tutorials, code-heavy docs |
 | `minimal-light` | Light | Ultra clean minimal monochrome aesthetic without shadows or borders. | Distraction-free reading, print-friendly docs |
-| `minimal-dark` | Dark | Ultra clean minimal monochrome dark aesthetic. | Focused reading, pure dark text editing |
+| `minimal-dark` | Dark | Ultra clean minimal monochrome dark aesthetic. | Focused reading, pure dark text editing | (Add Google Material and Minimal themes to markdown-tools skill)
 
 ### Theme Aliases
 All previous theme names automatically map to the canonical themes:
@@ -100,3 +100,42 @@ To reinstall or refresh the Quick Action:
 bash ~/.gemini/config/skills/markdown-tools/scripts/install-finder-quick-action.sh
 ```
 
+
+---
+
+## 4. Automated Illustration & Layout Merging (`forma illustrate`)
+
+Automatically parses any Markdown document into sections/parts, generates contextual visuals using local models (Apple Silicon M2 / MLX / Local Vector Engine), and merges them directly into the document layout across all formats.
+
+### CLI Usage:
+
+```bash
+# Auto-illustrate and compile to PDF with VS Code Dark theme
+forma illustrate document.md -f pdf -t vscode-dark -o document_illustrated.pdf
+
+# Auto-illustrate and compile to Apple Pages (.pages)
+forma illustrate document.md -f pages -t apple-light -o document_illustrated.pages
+
+# Auto-illustrate and compile to HTML
+forma illustrate document.md -f html -t terminal-dark -o document_illustrated.html
+
+# Auto-illustrate and generate enriched Markdown (.md)
+forma illustrate document.md -f md -o document_illustrated.md
+```
+
+
+## Tectonic PDF Engine Support
+
+The markdown conversion tool now supports rendering PDFs using the **tectonic** LaTeX engine. Use the `--pdf-engine=tectonic` flag (or `-e tectonic`) with `forma convert` or `md-convert`.
+
+```bash
+forma convert doc.md -f pdf -e tectonic -t amil-light
+```
+
+If **tectonic** is not installed, the tool will attempt to install it via Homebrew:
+
+```bash
+brew install tectonic
+```
+
+This ensures a fast, dependency‑free LaTeX compilation without requiring a full TeX Live distribution.
