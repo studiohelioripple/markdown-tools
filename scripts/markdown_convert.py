@@ -2371,7 +2371,7 @@ def main(argv: list[str] | None = None) -> int:
         "Theme name: " + ", ".join(f"'{k}'" for k in THEME_CONFIGS.keys()) +
         " (or aliases like 'amil-design', 'modern', 'dark', 'terminal', 'vscode', 'github', 'nord', 'classic') or CSS file path"
     )
-    parser = argparse.ArgumentParser(description="Convert Markdown files to HTML, PDF, DOCX, or Pages with 9 beautiful themes.")
+    parser = argparse.ArgumentParser(description="Convert Markdown files to HTML, PDF, DOCX, or Pages with 14 beautiful themes.")
     parser.add_argument("files", nargs="+", type=Path, help="Markdown file(s) to convert")
     parser.add_argument("-f", "--format", choices=FORMATS, default="pdf", help="Output format (default: pdf)")
     parser.add_argument("-o", "--output", type=Path, help="Output path (only valid for one input file)")

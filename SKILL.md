@@ -92,7 +92,7 @@ forma convert document_fa.md -f pdf -t terminal-dark --rtl
 
 Users can right-click any `.md` or `.markdown` file in Finder and select **Quick Actions → Convert Markdown**:
 1. **Step 1**: Choose target format (`PDF`, `HTML`, `Apple Pages`, `Microsoft Word`).
-2. **Step 2**: Choose from 9 design themes with `Amil Light` pre-selected.
+2. **Step 2**: Choose from 14 design themes with `Amil Light` pre-selected.
 3. System compiles the file and triggers a native macOS notification with audio feedback (`Glass`).
 
 To reinstall or refresh the Quick Action:

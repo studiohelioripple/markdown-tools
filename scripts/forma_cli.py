@@ -10,7 +10,7 @@ Commands:
   forma decode      Extract .pages or .docx → {_content.md, _style.yml}
   forma restyle     Apply _style.yml or template document to any document
   forma standardize Standardize a document into pure named styles (stylize)
-  forma convert     Convert .md → .pdf, .html, .pages, or .docx with 8 native themes
+  forma convert     Convert .md → .pdf, .html, .pages, or .docx with 14 native themes
 """
 
 import sys, os, argparse
@@ -91,7 +91,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Run "forma <command> --help" for command-specific options.'
     )
-    parser.add_argument('-v', '--version', action='version', version='Forma Protocol v2.3 (9 Theme Engine)')
+    parser.add_argument('-v', '--version', action='version', version='Forma Protocol v2.4 (14 Theme Engine)')
 
     subparsers = parser.add_subparsers(dest='command', help='Forma commands')
 
@@ -123,7 +123,7 @@ def main():
     p_cnv.add_argument(
         '-t', '--theme',
         default='amil-light',
-        help='Theme name: "amil-light", "amil-dark", "terminal-dark", "apple-light", "apple-dark", "vscode-dark", "github-light", "nord-frost", "editorial-serif" (or custom CSS file path)'
+        help='Theme name: "amil-light", "amil-dark", "terminal-dark", "apple-light", "apple-dark", "vscode-dark", "vscode-light", "github-light", "nord-frost", "editorial-serif", "google-material-light", "google-material-dark", "minimal-light", "minimal-dark" (or custom CSS file path)'
     )
     p_cnv.add_argument('--css', default='', help='Custom CSS overrides')
     p_cnv.add_argument('--rtl', action='store_true', default=None, help='Force Right-to-Left (RTL) mode')
