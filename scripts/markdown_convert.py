@@ -1003,8 +1003,8 @@ CORE_CSS_TEMPLATE = """
         .task-list-item { display: flex; align-items: center; gap: 8px; margin: 0.3em 0; }
         .task-list-item input[type="checkbox"] { margin: 0; }
 
-        /* KaTeX Math formulas */
-        .katex-display {
+        /* KaTeX & FMath Math formulas */
+        .katex-display, .fmath-formula.display-math, fmath[display="true"], fmath-formula[display="true"] {
             margin: 1.6em 0 !important;
             padding: 14px 20px;
             background: var(--bg-card);
@@ -1016,6 +1016,14 @@ CORE_CSS_TEMPLATE = """
             direction: ltr !important;
             text-align: center !important;
             color: var(--text-primary);
+        }
+
+        .katex-inline, .fmath-formula.inline-math, fmath:not([display="true"]), fmath-formula:not([display="true"]), span.math.inline {
+            direction: ltr !important;
+            display: inline-block;
+            vertical-align: middle;
+            color: var(--text-primary);
+            padding: 0 2px;
         }
 
         hr {
@@ -1062,7 +1070,7 @@ CORE_CSS_TEMPLATE = """
                 background-color: var(--bg-card) !important;
                 min-height: 100vh !important;
             }
-            .code-block, table, .table-wrapper, blockquote, .callout, .mermaid-container, .katex-display, img {
+            .code-block, table, .table-wrapper, blockquote, .callout, .mermaid-container, .katex-display, .fmath-formula, fmath, fmath-formula, img {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
@@ -1350,6 +1358,89 @@ def build_ooxml_drawing(r_id_svg: str, r_id_png: str, cx: int, cy: int, desc: st
     return p
 
 
+def extract_clean_formula(raw_formula: str) -> str:
+    """Extract clean LaTeX/formula string from raw formula text, HTML wrapper, or tag."""
+    s = raw_formula.strip()
+    attr_m = re.search(r"""data-(?:formula|expr)=["\']([^"\']+)["\']""", s)
+    if attr_m:
+        return html.unescape(attr_m.group(1)).strip()
+    tag_m = re.match(
+        r"^\s*<(?:fmath|fmath-formula|formula|math|span|div)(?:\s+[^>]*)?>(.*)</(?:fmath|fmath-formula|formula|math|span|div)>\s*$",
+        s,
+        re.DOTALL | re.IGNORECASE
+    )
+    if tag_m:
+        s = tag_m.group(1).strip()
+    if s.startswith("$$") and s.endswith("$$") and len(s) >= 4:
+        s = s[2:-2].strip()
+    elif s.startswith("\\[") and s.endswith("\\]") and len(s) >= 4:
+        s = s[2:-2].strip()
+    elif s.startswith("\\(") and s.endswith("\\)") and len(s) >= 4:
+        s = s[2:-2].strip()
+    elif s.startswith("$") and s.endswith("$") and len(s) >= 2 and not s.startswith("$$"):
+        s = s[1:-1].strip()
+    return html.unescape(s)
+
+
+def batch_render_math_expressions(
+    items: list[tuple[str, bool]],
+    vendor_dir: Path | None = None
+) -> list[str]:
+    """
+    Renders a list of (expr, display_mode) tuples in a single Node subprocess using local KaTeX.
+    Returns list of rendered HTML strings (or empty string on failure).
+    """
+    if not items:
+        return []
+    v_dir = vendor_dir or VENDOR_DIR
+    katex_js = v_dir / "katex.js"
+    results = ["" for _ in items]
+    if not (katex_js.exists() and shutil.which("node")):
+        return results
+
+    try:
+        node_script = f"""
+        const katex = require({json.dumps(str(katex_js.resolve()))});
+        const readline = require("readline");
+        const rl = readline.createInterface({{ input: process.stdin, output: process.stdout, terminal: false }});
+        rl.on("line", (line) => {{
+            if (!line.trim()) return;
+            try {{
+                const req = JSON.parse(line);
+                const html = katex.renderToString(req.expr, {{ displayMode: !!req.displayMode, throwOnError: false }});
+                console.log(JSON.stringify({{ ok: true, html: html }}));
+            }} catch(e) {{
+                console.log(JSON.stringify({{ ok: false, error: e.message }}));
+            }}
+        }});
+        """
+        proc = subprocess.Popen(
+            ["node", "-e", node_script],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True
+        )
+        for expr, display in items:
+            proc.stdin.write(json.dumps({"expr": expr, "displayMode": display}) + "\n")
+        proc.stdin.flush()
+        proc.stdin.close()
+
+        for i in range(len(items)):
+            line = proc.stdout.readline()
+            if line:
+                try:
+                    data = json.loads(line)
+                    if data.get("ok"):
+                        results[i] = data.get("html", "")
+                except Exception:
+                    pass
+        proc.stdout.close()
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+    return results
+
+
 def parse_markdown_to_html(
     md_text: str,
     title: str = "",
@@ -1377,8 +1468,16 @@ def parse_markdown_to_html(
     in_blockquote = False
     blockquote_lines: list[str] = []
     slug_counts: dict[str, int] = {}
+    math_items: list[dict] = []
 
     is_rtl = force_rtl if force_rtl is not None else is_persian_or_arabic(md_text)
+
+    def register_math_item(raw: str, is_display: bool) -> str:
+        clean = extract_clean_formula(raw)
+        m_id = len(math_items)
+        token = f"\x00MATH_{'DISPLAY' if is_display else 'INLINE'}_{m_id}\x00"
+        math_items.append({"id": m_id, "expr": clean, "raw": raw, "display": is_display, "token": token})
+        return token
 
     def get_slug(text: str) -> str:
         clean = re.sub(r"<[^>]+>", "", text)
@@ -1400,6 +1499,29 @@ def parse_markdown_to_html(
 
         t = re.sub(r"`([^`]+)`", save_code, text)
 
+        # 1. Inline custom math tags: <fmath...>, <fmath-formula...>, <span class="fmath-formula"...>
+        def save_fmath_tag(m: re.Match[str]) -> str:
+            return register_math_item(m.group(0), is_display=False)
+
+        t = re.sub(r"<(?:fmath-formula|fmath)\b[^>]*>.*?</(?:fmath-formula|fmath)>", save_fmath_tag, t, flags=re.IGNORECASE | re.DOTALL)
+        t = re.sub(r'<span\s+[^>]*\bclass=["\'][^"\']*\b(?:fmath-formula|fmath|math|katex-inline)\b[^"\']*["\'][^>]*>.*?</span>', save_fmath_tag, t, flags=re.IGNORECASE | re.DOTALL)
+        t = re.sub(r'<span\s+[^>]*\bdata-(?:formula|expr)=["\'][^"\']+["\'][^>]*>.*?</span>', save_fmath_tag, t, flags=re.IGNORECASE | re.DOTALL)
+
+        # 2. Inline LaTeX \( ... \)
+        def save_latex_inline(m: re.Match[str]) -> str:
+            return register_math_item(m.group(1), is_display=False)
+
+        t = re.sub(r"\\\((.+?)\\\)", save_latex_inline, t)
+
+        # 3. TeX inline math $ ... $ (avoiding currency $10 and escaped \$)
+        def save_dollar_math(m: re.Match[str]) -> str:
+            inner = m.group(1)
+            if inner and not inner.isspace():
+                return register_math_item(inner, is_display=False)
+            return m.group(0)
+
+        t = re.sub(r"(?<![\w\$\\])\$(?!\$)([^\$\n]+?)(?<![\s\$\\])\$(?![\w\$])", save_dollar_math, t)
+
         def replace_img(m: re.Match[str]) -> str:
             alt, src = m.group(1), m.group(2)
             is_badge = "shields.io" in src or "badge" in src.lower() or "height=" in src
@@ -1417,8 +1539,8 @@ def parse_markdown_to_html(
         t = re.sub(r"~~([^~]+)~~", r"<del>\1</del>", t)
         t = re.sub(r"==([^=]+)==", r"<mark>\1</mark>", t)
 
-        for idx, code_content in enumerate(code_spans):
-            t = t.replace(f"\x00CODESPAN{idx}\x00", f"<code>{html.escape(code_content)}</code>")
+        for idx_c, code_content in enumerate(code_spans):
+            t = t.replace(f"\x00CODESPAN{idx_c}\x00", f"<code>{html.escape(code_content)}</code>")
         return t
 
     def close_table() -> None:
@@ -1492,13 +1614,17 @@ def parse_markdown_to_html(
             close_table(); close_list(); close_callout(); close_blockquote()
             if in_code:
                 raw_code = "\n".join(code_lines)
-                if code_lang.lower() == "mermaid":
+                lang_lower = code_lang.lower().strip()
+                if lang_lower == "mermaid":
                     if for_textutil:
                         diag_idx = len(diagrams_meta)
                         diagrams_meta.append(raw_code)
                         out.append(f'<p style="font-family: Arial; font-size: 10pt;">__FORMA_DIAGRAM_START_{diag_idx}__</p>')
                     else:
                         out.append(f'<div class="mermaid-container"><div class="mermaid">{html.escape(raw_code)}</div></div>')
+                elif lang_lower in ("latex", "tex", "math", "katex", "fmath", "fmath-formula", "formula"):
+                    token = register_math_item(raw_code, is_display=True)
+                    out.append(token)
                 else:
                     code_content = html.escape(raw_code)
                     lang_label = html.escape(code_lang) if code_lang else ""
@@ -1531,10 +1657,99 @@ def parse_markdown_to_html(
             continue
 
         # Check block math $$...$$
-        if line.strip().startswith("$$") and line.strip().endswith("$$") and len(line.strip()) > 4:
+        if line.strip().startswith("$$"):
             close_table(); close_list(); close_callout(); close_blockquote()
-            formula = line.strip().strip("$").strip()
-            out.append(f'<div class="katex-display" data-expr="{html.escape(formula)}">{line.strip()}</div>')
+            stripped = line.strip()
+            if stripped.endswith("$$") and len(stripped) > 2:
+                formula = stripped[2:-2].strip()
+                token = register_math_item(formula, is_display=True)
+                out.append(token)
+                idx += 1
+                continue
+            else:
+                math_lines = [stripped[2:].strip()] if len(stripped) > 2 else []
+                idx += 1
+                while idx < len(lines):
+                    cur = lines[idx]
+                    if "$$" in cur:
+                        parts = cur.split("$$", 1)
+                        if parts[0].strip():
+                            math_lines.append(parts[0].strip())
+                        break
+                    math_lines.append(cur)
+                    idx += 1
+                formula = "\n".join(math_lines).strip()
+                token = register_math_item(formula, is_display=True)
+                out.append(token)
+                idx += 1
+                continue
+
+        # Check block math \[...\]
+        if line.strip().startswith("\\["):
+            close_table(); close_list(); close_callout(); close_blockquote()
+            stripped = line.strip()
+            if stripped.endswith("\\]") and len(stripped) > 2:
+                formula = stripped[2:-2].strip()
+                token = register_math_item(formula, is_display=True)
+                out.append(token)
+                idx += 1
+                continue
+            else:
+                math_lines = [stripped[2:].strip()] if len(stripped) > 2 else []
+                idx += 1
+                while idx < len(lines):
+                    cur = lines[idx]
+                    if "\\]" in cur:
+                        parts = cur.split("\\]", 1)
+                        if parts[0].strip():
+                            math_lines.append(parts[0].strip())
+                        break
+                    math_lines.append(cur)
+                    idx += 1
+                formula = "\n".join(math_lines).strip()
+                token = register_math_item(formula, is_display=True)
+                out.append(token)
+                idx += 1
+                continue
+
+        # Check LaTeX environment blocks \begin{...}
+        env_m = re.match(r"^\\begin\{(equation\*?|align\*?|aligned|gather\*?|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|split|multline\*?)\}", line.strip())
+        if env_m:
+            close_table(); close_list(); close_callout(); close_blockquote()
+            env_name = env_m.group(1)
+            math_lines = [line]
+            idx += 1
+            end_tag = f"\\end{{{env_name}}}"
+            while idx < len(lines):
+                cur = lines[idx]
+                math_lines.append(cur)
+                if end_tag in cur:
+                    break
+                idx += 1
+            formula = "\n".join(math_lines).strip()
+            token = register_math_item(formula, is_display=True)
+            out.append(token)
+            idx += 1
+            continue
+
+        # Check HTML block math tags: <fmath>, <fmath-formula>, <div class="fmath-formula">
+        block_fmath_m = re.match(r"^\s*<(fmath|fmath-formula|div\s+[^>]*\b(?:fmath-formula|fmath|math|katex-display)\b)", line, re.IGNORECASE)
+        if block_fmath_m:
+            close_table(); close_list(); close_callout(); close_blockquote()
+            tag_prefix = block_fmath_m.group(1).lower()
+            closing_tag = "</div" if "div" in tag_prefix else f"</{tag_prefix.split()[0]}"
+            math_lines = [line]
+            if closing_tag not in line.lower():
+                idx += 1
+                while idx < len(lines):
+                    cur = lines[idx]
+                    math_lines.append(cur)
+                    if closing_tag in cur.lower():
+                        break
+                    idx += 1
+            formula = "\n".join(math_lines).strip()
+            token = register_math_item(formula, is_display=True)
+            out.append(token)
             idx += 1
             continue
 
@@ -1668,7 +1883,36 @@ def parse_markdown_to_html(
 
     close_table(); close_list(); close_callout(); close_blockquote()
 
+    # Pre-render all math items using local KaTeX
+    render_inputs = [(item["expr"], item["display"]) for item in math_items]
+    rendered_results = batch_render_math_expressions(render_inputs, vendor_dir=VENDOR_DIR)
+
     body_html = "\n".join(out)
+
+    for item, rendered_html in zip(math_items, rendered_results):
+        token = item["token"]
+        expr = item["expr"]
+        is_display = item["display"]
+        
+        if for_textutil:
+            clean_text = html.escape(expr)
+            if rendered_html:
+                if is_display:
+                    replacement = f'<div class="katex-display fmath-formula" style="font-family: \'Times New Roman\', serif; text-align: center; margin: 1em 0; font-size: 11pt;">{rendered_html}</div>'
+                else:
+                    replacement = f'<span class="katex-inline fmath-formula" style="font-family: \'Times New Roman\', serif; font-size: 10pt;">{rendered_html}</span>'
+            else:
+                if is_display:
+                    replacement = f'<p style="font-family: \'Times New Roman\', serif; text-align: center; margin: 1em 0; font-style: italic;">{clean_text}</p>'
+                else:
+                    replacement = f'<span style="font-family: \'Times New Roman\', serif; font-style: italic;">{clean_text}</span>'
+        else:
+            inner = rendered_html if rendered_html else html.escape(expr)
+            if is_display:
+                replacement = f'<div class="katex-display fmath-formula display-math" data-expr="{html.escape(expr)}">{inner}</div>'
+            else:
+                replacement = f'<span class="katex-inline fmath-formula inline-math" data-expr="{html.escape(expr)}">{inner}</span>'
+        body_html = body_html.replace(token, replacement)
     
     # Resolve theme CSS & Mermaid config
     normalized_theme = normalize_theme_name(theme)
@@ -1737,11 +1981,16 @@ window.mermaidConfig = {mermaid_cfg_json};
 <script>
 document.addEventListener("DOMContentLoaded", function() {{
     if (window.katex) {{
-        document.querySelectorAll('.katex-display').forEach(function(el) {{
-            var expr = el.getAttribute('data-expr');
+        document.querySelectorAll('.katex-display, .katex-inline, .fmath-formula, fmath, fmath-formula, span.math, div.math').forEach(function(el) {{
+            if (el.querySelector('.katex')) return;
+            var expr = el.getAttribute('data-expr') || el.getAttribute('data-formula') || el.textContent;
             if (expr) {{
+                var isDisplay = el.classList.contains('katex-display') || 
+                                el.tagName.toLowerCase() === 'div' || 
+                                el.getAttribute('display') === 'true' ||
+                                el.classList.contains('display-math');
                 try {{
-                    katex.render(expr, el, {{ displayMode: true, throwOnError: false }});
+                    katex.render(expr.trim(), el, {{ displayMode: isDisplay, throwOnError: false }});
                 }} catch(e) {{}}
             }}
         }});

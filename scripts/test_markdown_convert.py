@@ -51,6 +51,63 @@ class MarkdownConvertTests(unittest.TestCase):
             self.assertIn("<strong>bold text</strong>", content)
             self.assertIn("<code>another_code</code>", content)
 
+    def test_latex_and_fmath_formula_html_conversion(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            md_text = """# Formula Tests
+Inline TeX: $E = mc^2$ and LaTeX: \\( \\alpha + \\beta = 1 \\).
+Currency isolation: Item is $50 and shipping is $10.
+
+Block $$:
+$$
+\\int_0^1 x^2 dx = \\frac{1}{3}
+$$
+
+Bracket block:
+\\[
+\\sum_{i=1}^n i = \\frac{n(n+1)}{2}
+\\]
+
+Environment:
+\\begin{align}
+a &= b + c \\\\
+x &= y + z
+\\end{align}
+
+Fenced latex:
+```latex
+\\mathbf{F} = m\\mathbf{a}
+```
+
+Fenced fmath:
+```fmath-formula
+\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1
+```
+
+HTML fmath tags:
+<fmath>\\sqrt{x^2 + y^2}</fmath>
+<fmath-formula>\\cos(\\theta)</fmath-formula>
+<div class="fmath-formula">\\nabla \\cdot \\mathbf{E} = \\rho</div>
+"""
+            source = Path(temp_dir) / "math.md"
+            source.write_text(md_text, encoding="utf-8")
+            output = MODULE.convert_markdown(source, "html")
+            content = output.read_text(encoding="utf-8")
+
+            self.assertIn("katex", content)
+            self.assertIn("fmath-formula", content)
+            self.assertIn("katex-display", content)
+            self.assertIn("katex-inline", content)
+            self.assertIn("Item is $50 and shipping is $10.", content)
+
+    def test_latex_and_fmath_formula_docx_conversion(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "math.md"
+            source.write_text("# Math\n\n$E = mc^2$\n\n<fmath>\\frac{a}{b}</fmath>\n", encoding="utf-8")
+            output = MODULE.convert_markdown(source, "docx")
+            self.assertTrue(output.is_file())
+            self.assertGreater(output.stat().st_size, 1000)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -20,3 +20,17 @@ Finally, let's test dynamic color rendering and the auto-standardization of dire
 # Code blocks should remain unaffected by span injection
 print("Hello <span style='color:red'>World</span>")
 ```
+
+## Mathematical Formulations
+
+Here is inline LaTeX: $e^{i\pi} + 1 = 0$ and inline formula: \( f(x) = \sin(x) \).
+Here is FMath tag: <fmath>\sqrt{a^2 + b^2} = c</fmath> and <span class="fmath-formula">E = mc^2</span>.
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+
+```fmath-formula
+\lim_{x \to 0} \frac{\sin x}{x} = 1
+```
+

@@ -88,7 +88,24 @@ forma convert document_fa.md -f pdf -t terminal-dark --rtl
 
 ---
 
-## 3. Finder Right-Click Quick Action (macOS Services)
+## 3. Mathematical & Scientific Formulas (LaTeX, TeX, FMath)
+
+Full support for mathematical equations rendered with offline vector sharpness across HTML, PDF, DOCX, and Pages:
+
+- **Inline Formulas**:
+  - Standard TeX: `$E = mc^2$`
+  - Standard LaTeX: `\( \alpha + \beta = \gamma \)`
+  - FMath tags: `<fmath>\sqrt{a^2 + b^2}</fmath>`, `<fmath-formula>\cos(\theta)</fmath-formula>`, `<span class="fmath-formula">x \in \mathbb{R}</span>`
+- **Block & Display Equations**:
+  - Multi-line & single-line `$$...$$`
+  - Bracket notation `\[ ... \]`
+  - LaTeX environments: `\begin{align}...\end{align}`, `\begin{equation}...\end{equation}`, `\begin{matrix}...\end{matrix}`, `\begin{cases}...\end{cases}`
+  - Fenced code blocks: ````latex`, ````tex`, ````math`, ````katex`, ````fmath`, ````fmath-formula`
+  - Block tags: `<div class="fmath-formula">...</div>`, `<fmath display="true">...</fmath>`
+
+---
+
+## 4. Finder Right-Click Quick Action (macOS Services)
 
 Users can right-click any `.md` or `.markdown` file in Finder and select **Quick Actions → Convert Markdown**:
 1. **Step 1**: Choose target format (`PDF`, `HTML`, `Apple Pages`, `Microsoft Word`).

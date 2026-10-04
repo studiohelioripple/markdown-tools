@@ -28,7 +28,7 @@ A comprehensive suite and agent skill for Markdown processing, multi-target comp
 
 - 📄 **Multi-Target Conversion**: Convert Markdown into styled **PDF**, **HTML**, **Apple Pages (`.pages`)**, or **Word (`.docx`)**.
 - 📊 **Native Mermaid Diagrams**: Render flowcharts, sequence diagrams, and architecture graphs in dark or light mode.
-- 📐 **KaTeX Mathematical Equations**: Full rendering for both inline ($\alpha = 0.05$) and block math equations.
+- 📐 **LaTeX & FMath Mathematical Equations**: Full rendering for TeX inline (`$...$`), LaTeX inline (`\(...\)`), FMath tags (`<fmath>`, `<fmath-formula>`), display blocks (`$$...$$`, `\[...\]`), LaTeX environments (`align`, `equation`, `matrix`), and code fences.
 - 💡 **GFM Callout Banners**: Full support for `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, and `> [!CAUTION]`.
 - 🖥️ **macOS Finder Quick Actions**: Right-click any `.md` file in Finder to convert with interactive theme selection and sound notification.
 - 🤖 **Agentic Skill Integration**: Equipped with `SKILL.md` for seamless integration into Antigravity and AI coding agents.
