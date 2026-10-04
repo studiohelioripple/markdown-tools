@@ -1396,7 +1396,7 @@ def parse_markdown_to_html(
         code_spans: list[str] = []
         def save_code(m: re.Match[str]) -> str:
             code_spans.append(m.group(1))
-            return f"__CODESPAN_{len(code_spans)-1}__"
+            return f"\x00CODESPAN{len(code_spans)-1}\x00"
 
         t = re.sub(r"`([^`]+)`", save_code, text)
 
@@ -1418,7 +1418,7 @@ def parse_markdown_to_html(
         t = re.sub(r"==([^=]+)==", r"<mark>\1</mark>", t)
 
         for idx, code_content in enumerate(code_spans):
-            t = t.replace(f"__CODESPAN_{idx}__", f"<code>{html.escape(code_content)}</code>")
+            t = t.replace(f"\x00CODESPAN{idx}\x00", f"<code>{html.escape(code_content)}</code>")
         return t
 
     def close_table() -> None:

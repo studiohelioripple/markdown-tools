@@ -41,6 +41,16 @@ class MarkdownConvertTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.convert_markdown(source, "html")
 
+    def test_codespan_with_underscores_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "notes.md"
+            source.write_text("Test `my_var_name` and __bold text__ and `another_code`.", encoding="utf-8")
+            output = MODULE.convert_markdown(source, "html")
+            content = output.read_text(encoding="utf-8")
+            self.assertIn("<code>my_var_name</code>", content)
+            self.assertIn("<strong>bold text</strong>", content)
+            self.assertIn("<code>another_code</code>", content)
+
 
 if __name__ == "__main__":
     unittest.main()
