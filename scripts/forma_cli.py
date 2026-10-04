@@ -91,7 +91,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Run "forma <command> --help" for command-specific options.'
     )
-    parser.add_argument('-v', '--version', action='version', version='Forma Protocol v2.4 (14 Theme Engine)')
+    parser.add_argument('-v', '--version', action='version', version='Forma Protocol v2.5 (14 Theme Engine + Math & FMath)')
 
     subparsers = parser.add_subparsers(dest='command', help='Forma commands')
 
